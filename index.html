@@ -2,91 +2,164 @@
 <html lang="th">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ECU Custom Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>DIY TUNER PRO</title>
     <style>
-        body { background-color: #0d1117; color: #fff; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; text-align: center; margin: 0; padding: 20px; }
-        .btn-connect { background: #238636; color: white; border: none; padding: 15px 30px; border-radius: 25px; font-size: 18px; font-weight: bold; margin-bottom: 20px; cursor: pointer; box-shadow: 0 4px 12px rgba(35,134,54,0.4); }
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; max-width: 400px; margin: 0 auto; }
-        .card { background: #161b22; border: 1px solid #30363d; border-radius: 16px; padding: 20px; box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
-        .card-full { grid-column: span 2; }
-        .val { font-size: 42px; font-weight: 800; color: #58a6ff; margin: 10px 0; }
-        .title { font-size: 14px; color: #8b949e; text-transform: uppercase; letter-spacing: 1px; }
-        .btn-danger { background: #da3633; color: white; border: none; padding: 15px; border-radius: 12px; font-size: 16px; font-weight: bold; width: 100%; margin-top: 10px; cursor: pointer; }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Arial Black', Gadget, sans-serif; user-select: none; }
+        body { background-color: #080808; color: #fff; overflow: hidden; height: 100vh; display: flex; justify-content: center; align-items: center; }
+        
+        .dashboard { width: 100vw; height: 100vh; max-width: 900px; max-height: 420px; background: radial-gradient(circle, #1a1a1a 0%, #050505 100%); border: 2px solid #333; position: relative; display: flex; padding: 10px; box-shadow: 0 0 30px rgba(0,0,0,0.9); }
+        
+        /* Top Navigation Bar */
+        .top-bar { position: absolute; top: 10px; left: 15px; right: 15px; display: flex; justify-content: space-between; align-items: center; z-index: 10; }
+        .menu-btn { font-size: 24px; color: #fff; cursor: pointer; text-shadow: 0 0 5px #fff; }
+        
+        /* Center Gauge Area */
+        .center-container { flex: 2; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; }
+        
+        /* Round Tachometer Ring */
+        .main-gauge { width: 260px; height: 260px; border-radius: 50%; border: 8px solid #e6e6e6; background: #111; position: relative; display: flex; flex-direction: column; justify-content: center; align-items: center; box-shadow: 0 0 20px rgba(255,255,255,0.2), inset 0 0 15px #000; }
+        
+        /* Brand Custom Logo (No Copyright) */
+        .brand-logo { position: absolute; top: 25px; font-size: 13px; font-weight: bold; color: #fff; letter-spacing: 1px; display: flex; align-items: center; gap: 4px; }
+        .brand-logo span { color: #ff3d00; }
+        .shield-icon { width: 14px; height: 14px; background: #ff3d00; clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%); }
+
+        /* Speedometer & RPM Display */
+        .speed-val { font-size: 55px; font-weight: 900; color: #fff; line-height: 1; text-shadow: 0 0 10px rgba(255,255,255,0.5); }
+        .unit-label { font-size: 12px; color: #888; margin-bottom: 5px; }
+        .rpm-val { font-size: 32px; color: #fff; font-weight: 800; border-top: 2px solid #333; padding-top: 2px; width: 80%; text-align: center; }
+        
+        .time-date { position: absolute; bottom: 20px; font-size: 10px; color: #aaa; text-align: center; }
+
+        /* Left Side Gauges */
+        .left-container { flex: 1; display: flex; flex-direction: column; justify-content: space-around; align-items: flex-end; padding-right: 10px; }
+        .arc-card { background: rgba(255,255,255,0.05); border-left: 4px solid #ffff00; border-radius: 8px; padding: 8px 15px; text-align: right; width: 85%; }
+        .arc-title { font-size: 14px; color: #ffff00; }
+        .arc-val { font-size: 26px; font-weight: bold; color: #fff; }
+
+        /* Right Side Data List */
+        .right-container { flex: 1; display: flex; flex-direction: column; justify-content: space-between; background: rgba(0,0,0,0.4); border-radius: 8px; padding: 8px; border: 1px solid #222; }
+        .data-row { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px dashed #222; padding: 2px 0; }
+        .data-label { font-size: 11px; color: #ffff00; font-weight: bold; }
+        .data-label span { font-size: 8px; color: #888; }
+        .data-val { font-size: 14px; font-weight: bold; color: #fff; }
+
+        /* Bluetooth Floating Button */
+        .bt-btn { position: absolute; bottom: 15px; left: 15px; width: 45px; height: 45px; border-radius: 50%; background: #ff1744; border: 2px solid #fff; display: flex; justify-content: center; align-items: center; color: white; font-size: 20px; cursor: pointer; box-shadow: 0 0 15px rgba(255,23,68,0.8); }
+        .status-bar { position: absolute; bottom: 5px; width: 100%; text-align: center; font-size: 10px; color: #666; }
     </style>
 </head>
 <body>
 
-    <h2>ECU TUNER DASHBOARD</h2>
-    <button class="btn-connect" onclick="connectBLE()">🔌 เชื่อมต่อ Bluetooth</button>
+<div class="dashboard">
+    <!-- Top Bar -->
+    <div class="top-bar">
+        <div class="menu-btn" onclick="clearDTC()">☰</div>
+    </div>
 
-    <div class="grid">
-        <div class="card">
-            <div class="title">รอบเครื่องยนต์</div>
-            <div class="val" id="rpmVal">0</div>
-            <div class="title">RPM</div>
+    <!-- Left Side: TPS & AFR -->
+    <div class="left-container">
+        <div class="arc-card">
+            <div class="arc-title">TPS</div>
+            <div class="arc-val" id="tpsVal">0°</div>
         </div>
-        <div class="card">
-            <div class="title">ลิ้นผีเสื้อ</div>
-            <div class="val" id="tpsVal" style="color: #3fb950;">0</div>
-            <div class="title">% TPS</div>
-        </div>
-        <div class="card card-full">
-            <button class="btn-danger" onclick="clearDTC()">⚠️ ลบรหัสโค้ดชำรุด (Clear DTC)</button>
+        <div class="arc-card" style="border-color: #00e676;">
+            <div class="arc-title" style="color: #00e676;">AFR</div>
+            <div class="arc-val" id="afrVal">0.0</div>
         </div>
     </div>
 
-    <script>
-        let txCharacteristic;
-
-        async function connectBLE() {
-            try {
-                // ค้นหาอุปกรณ์ BLE
-                const device = await navigator.bluetooth.requestDevice({
-                    filters: [{ name: 'ESP32_ECU_BLE' }],
-                    optionalServices: ['6e400001-b5a3-f393-e0a9-e50e24dcca9e']
-                });
-
-                const server = await device.gatt.connect();
-                const service = await server.getPrimaryService('6e400001-b5a3-f393-e0a9-e50e24dcca9e');
-                
-                // รับข้อมูลจาก ESP32
-                const rxCharacteristic = await service.getCharacteristic('6e400003-b5a3-f393-e0a9-e50e24dcca9e');
-                txCharacteristic = await service.getCharacteristic('6e400002-b5a3-f393-e0a9-e50e24dcca9e');
-
-                await rxCharacteristic.startNotifications();
-                rxCharacteristic.addEventListener('characteristicvaluechanged', handleData);
-                
-                alert("เชื่อมต่อ Bluetooth เรียบร้อย!");
-            } catch (error) {
-                alert("การเชื่อมต่อล้มเหลว: " + error);
-            }
-        }
-
-        function handleData(event) {
-            const decoder = new TextDecoder('utf-8');
-            const dataStr = decoder.decode(event.target.value);
+    <!-- Center Main Gauge -->
+    <div class="center-container">
+        <div class="main-gauge">
+            <!-- Custom Brand Logo (Safe from Copyright) -->
+            <div class="brand-logo">
+                <div class="shield-icon"></div>
+                DIY<span>TUNER</span>
+            </div>
             
-            // ตัวอย่างข้อความที่ส่งมา "RPM: 1050 | TPS: 2%"
-            if (dataStr.includes("RPM:")) {
-                const parts = dataStr.split('|');
-                const rpm = parts[0].replace(/[^0-9]/g, '');
-                const tps = parts[1].replace(/[^0-9]/g, '');
-                
-                document.getElementById('rpmVal').innerText = rpm;
-                document.getElementById('tpsVal').innerText = tps;
-            }
-        }
+            <div class="speed-val" id="speedVal">0</div>
+            <div class="unit-label">km/h</div>
+            <div class="rpm-val" id="rpmVal">0</div>
+            <div class="unit-label">RPM</div>
 
-        async function clearDTC() {
-            if (txCharacteristic) {
-                const encoder = new TextEncoder();
-                await txCharacteristic.writeValue(encoder.encode('CLEAR'));
-                alert('ส่งคำสั่งลบโค้ดแล้ว');
-            } else {
-                alert('กรุณาเชื่อมต่อ Bluetooth ก่อน');
-            }
+            <div class="time-date">
+                <div id="clock">10:42</div>
+                <div>9 AUG 2026</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Side: ECU Parameters -->
+    <div class="right-container">
+        <div class="data-row"><div class="data-label">INJ <span>(ms)</span></div><div class="data-val" id="injVal">0.00</div></div>
+        <div class="data-row"><div class="data-label">IGN <span>(deg)</span></div><div class="data-val" id="ignVal">0.0</div></div>
+        <div class="data-row"><div class="data-label">COOLANT <span>(°C)</span></div><div class="data-val" id="ectVal">40</div></div>
+        <div class="data-row"><div class="data-label">MAP <span>(kPa)</span></div><div class="data-val" id="mapVal">0</div></div>
+        <div class="data-row"><div class="data-label">IAT <span>(°C)</span></div><div class="data-val" id="iatVal">0</div></div>
+        <div class="data-row"><div class="data-label">BAT <span>(volt)</span></div><div class="data-val" id="batVal">12.6</div></div>
+    </div>
+
+    <!-- Bluetooth Connection Button -->
+    <div class="bt-btn" onclick="connectBLE()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M17.71 7.71L12 2h-1v7.59L6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 11 14.41V22h1l5.71-5.71-4.3-4.29 4.3-4.29zM13 5.83l1.88 1.88L13 9.59V5.83zm1.88 12.46L13 20.17v-3.76l1.88 1.88z"/></svg>
+    </div>
+
+    <div class="status-bar">ระบบความปลอดภัย : พร้อมใช้งาน</div>
+</div>
+
+<script>
+    let txCharacteristic;
+
+    // ระบบนาฬิกาเรียลไทม์
+    setInterval(() => {
+        const now = new Date();
+        document.getElementById('clock').innerText = now.toTimeString().substring(0,5);
+    }, 1000);
+
+    async function connectBLE() {
+        try {
+            const device = await navigator.bluetooth.requestDevice({
+                filters: [{ name: 'ESP32_ECU_BLE' }],
+                optionalServices: ['6e400001-b5a3-f393-e0a9-e50e24dcca9e']
+            });
+
+            const server = await device.gatt.connect();
+            const service = await server.getPrimaryService('6e400001-b5a3-f393-e0a9-e50e24dcca9e');
+            const rxCharacteristic = await service.getCharacteristic('6e400003-b5a3-f393-e0a9-e50e24dcca9e');
+            txCharacteristic = await service.getCharacteristic('6e400002-b5a3-f393-e0a9-e50e24dcca9e');
+
+            await rxCharacteristic.startNotifications();
+            rxCharacteristic.addEventListener('characteristicvaluechanged', handleData);
+            alert("เชื่อมต่อ Bluetooth เรียบร้อย!");
+        } catch (error) {
+            alert("เชื่อมต่อล้มเหลว: " + error);
         }
-    </script>
+    }
+
+    function handleData(event) {
+        const decoder = new TextDecoder('utf-8');
+        const dataStr = decoder.decode(event.target.value);
+        
+        // รับค่ามาอัปเดตบน UI
+        if (dataStr.includes("RPM:")) {
+            const parts = dataStr.split('|');
+            document.getElementById('rpmVal').innerText = parts[0].replace(/[^0-9]/g, '');
+            document.getElementById('tpsVal').innerText = parts[1].replace(/[^0-9]/g, '') + '°';
+        }
+    }
+
+    async function clearDTC() {
+        if (txCharacteristic) {
+            const encoder = new TextEncoder();
+            await txCharacteristic.writeValue(encoder.encode('CLEAR'));
+            alert('ส่งคำสั่งลบโค้ด (Clear DTC) แล้ว');
+        } else {
+            alert('กรุณากดปุ่ม Bluetooth เพื่อเชื่อมต่อก่อน');
+        }
+    }
+</script>
+
 </body>
 </html>
