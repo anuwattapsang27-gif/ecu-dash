@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>MOS REMAP </title>
+    <title>MOS REMAP DASHBOARD</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Arial Black', Gadget, sans-serif; user-select: none; }
         body { background-color: #080808; color: #fff; overflow: hidden; height: 100vh; display: flex; justify-content: center; align-items: center; }
@@ -20,17 +20,17 @@
         /* Round Tachometer Ring */
         .main-gauge { width: 260px; height: 260px; border-radius: 50%; border: 8px solid #e6e6e6; background: #111; position: relative; display: flex; flex-direction: column; justify-content: center; align-items: center; box-shadow: 0 0 20px rgba(255,255,255,0.2), inset 0 0 15px #000; }
         
-        /* Brand Custom Logo (No Copyright) */
-        .brand-logo { position: absolute; top: 25px; font-size: 13px; font-weight: bold; color: #fff; letter-spacing: 1px; display: flex; align-items: center; gap: 4px; }
+        /* Custom Brand Logo: MOS REMAP */
+        .brand-logo { position: absolute; top: 22px; font-size: 14px; font-weight: 900; color: #fff; letter-spacing: 1.5px; display: flex; align-items: center; gap: 5px; text-shadow: 0 0 8px rgba(255,61,0,0.6); }
         .brand-logo span { color: #ff3d00; }
-        .shield-icon { width: 14px; height: 14px; background: #ff3d00; clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%); }
+        .shield-icon { width: 15px; height: 15px; background: #ff3d00; clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%); box-shadow: 0 0 5px #ff3d00; }
 
         /* Speedometer & RPM Display */
         .speed-val { font-size: 55px; font-weight: 900; color: #fff; line-height: 1; text-shadow: 0 0 10px rgba(255,255,255,0.5); }
         .unit-label { font-size: 12px; color: #888; margin-bottom: 5px; }
         .rpm-val { font-size: 32px; color: #fff; font-weight: 800; border-top: 2px solid #333; padding-top: 2px; width: 80%; text-align: center; }
         
-        .time-date { position: absolute; bottom: 20px; font-size: 10px; color: #aaa; text-align: center; }
+        .time-date { position: absolute; bottom: 18px; font-size: 10px; color: #aaa; text-align: center; }
 
         /* Left Side Gauges */
         .left-container { flex: 1; display: flex; flex-direction: column; justify-content: space-around; align-items: flex-end; padding-right: 10px; }
@@ -73,10 +73,10 @@
     <!-- Center Main Gauge -->
     <div class="center-container">
         <div class="main-gauge">
-            <!-- Custom Brand Logo (Safe from Copyright) -->
+            <!-- New Brand Logo: MOS REMAP -->
             <div class="brand-logo">
                 <div class="shield-icon"></div>
-                DIY<span>TUNER</span>
+                MOS <span>REMAP</span>
             </div>
             
             <div class="speed-val" id="speedVal">0</div>
@@ -86,7 +86,7 @@
 
             <div class="time-date">
                 <div id="clock">10:42</div>
-                <div>9 AUG 2026</div>
+                <div id="dateStr">9 AUG 2026</div>
             </div>
         </div>
     </div>
@@ -106,16 +106,18 @@
         <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M17.71 7.71L12 2h-1v7.59L6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 11 14.41V22h1l5.71-5.71-4.3-4.29 4.3-4.29zM13 5.83l1.88 1.88L13 9.59V5.83zm1.88 12.46L13 20.17v-3.76l1.88 1.88z"/></svg>
     </div>
 
-    <div class="status-bar">ระบบความปลอดภัย : พร้อมใช้งาน</div>
+    <div class="status-bar">MOS REMAP PERFORMANCE : Ready</div>
 </div>
 
 <script>
     let txCharacteristic;
 
-    // ระบบนาฬิกาเรียลไทม์
+    // ระบบนาฬิกาและวันที่เรียลไทม์
     setInterval(() => {
         const now = new Date();
         document.getElementById('clock').innerText = now.toTimeString().substring(0,5);
+        const options = { day: 'numeric', month: 'short', year: 'numeric' };
+        document.getElementById('dateStr').innerText = now.toLocaleDateString('en-GB', options).toUpperCase();
     }, 1000);
 
     async function connectBLE() {
@@ -142,7 +144,6 @@
         const decoder = new TextDecoder('utf-8');
         const dataStr = decoder.decode(event.target.value);
         
-        // รับค่ามาอัปเดตบน UI
         if (dataStr.includes("RPM:")) {
             const parts = dataStr.split('|');
             document.getElementById('rpmVal').innerText = parts[0].replace(/[^0-9]/g, '');
@@ -154,7 +155,7 @@
         if (txCharacteristic) {
             const encoder = new TextEncoder();
             await txCharacteristic.writeValue(encoder.encode('CLEAR'));
-            alert('ส่งคำสั่งลบโค้ด (Clear DTC) แล้ว');
+            alert('ส่งคำสั่งลบโค้ด (Clear DTC) เรียบร้อย');
         } else {
             alert('กรุณากดปุ่ม Bluetooth เพื่อเชื่อมต่อก่อน');
         }
