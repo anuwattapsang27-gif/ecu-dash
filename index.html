@@ -26,7 +26,7 @@
         .brand-logo span { color: #ff3d00; }
         .shield-icon { width: 13px; height: 13px; background: #ff3d00; clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%); box-shadow: 0 0 5px #ff3d00; }
 
-        /* Max Speed / Max RPM Display Badge */
+        /* Max Speed Badge */
         .max-badge { font-size: 10px; color: #ff3d00; background: rgba(255,61,0,0.15); border: 1px solid rgba(255,61,0,0.4); padding: 1px 6px; border-radius: 10px; cursor: pointer; margin-top: 18px; margin-bottom: -2px; }
         .max-badge:hover { background: rgba(255,61,0,0.3); }
 
@@ -49,6 +49,10 @@
         .data-label { font-size: 11px; color: #ffff00; font-weight: bold; }
         .data-label span { font-size: 8px; color: #888; }
         .data-val { font-size: 14px; font-weight: bold; color: #fff; }
+        
+        /* Highlight Trip Row */
+        .trip-row { background: rgba(0, 230, 118, 0.1); border-radius: 4px; padding: 2px 5px; cursor: pointer; }
+        .trip-row .data-label { color: #00e676; }
 
         /* Bluetooth Floating Button */
         .bt-btn { position: absolute; bottom: 15px; left: 15px; width: 45px; height: 45px; border-radius: 50%; background: #ff1744; border: 2px solid #fff; display: flex; justify-content: center; align-items: center; color: white; font-size: 20px; cursor: pointer; box-shadow: 0 0 15px rgba(255,23,68,0.8); }
@@ -79,13 +83,11 @@
     <!-- Center Main Gauge -->
     <div class="center-container">
         <div class="main-gauge">
-            <!-- Brand Logo: MOS REMAP -->
             <div class="brand-logo">
                 <div class="shield-icon"></div>
                 MOS <span>REMAP</span>
             </div>
             
-            <!-- Max Speed Display Badge (Click to Reset) -->
             <div class="max-badge" onclick="resetMaxValues()" title="แตะเพื่อรีเซ็ตค่าสูงสุด">
                 MAX: <span id="maxSpeedVal">0</span> km/h
             </div>
@@ -102,13 +104,16 @@
         </div>
     </div>
 
-    <!-- Right Side: ECU Parameters -->
+    <!-- Right Side: ECU Parameters & Trip Meter -->
     <div class="right-container">
+        <div class="data-row trip-row" onclick="resetTrip()" title="แตะเพื่อรีเซ็ตระยะทาง">
+            <div class="data-label">TRIP <span>(km)</span></div>
+            <div class="data-val" id="tripVal" style="color: #00e676;">0.00</div>
+        </div>
         <div class="data-row"><div class="data-label">INJ <span>(ms)</span></div><div class="data-val" id="injVal">0.00</div></div>
         <div class="data-row"><div class="data-label">IGN <span>(deg)</span></div><div class="data-val" id="ignVal">0.0</div></div>
         <div class="data-row"><div class="data-label">COOLANT <span>(°C)</span></div><div class="data-val" id="ectVal">40</div></div>
         <div class="data-row"><div class="data-label">MAP <span>(kPa)</span></div><div class="data-val" id="mapVal">0</div></div>
-        <div class="data-row"><div class="data-label">IAT <span>(°C)</span></div><div class="data-val" id="iatVal">0</div></div>
         <div class="data-row"><div class="data-label">BAT <span>(volt)</span></div><div class="data-val" id="batVal">12.6</div></div>
     </div>
 
@@ -124,8 +129,12 @@
     let txCharacteristic;
     let maxSpeed = 0;
     let maxRpm = 0;
+    
+    // ตัวแปรสำหรับคำนวณระยะทาง Trip
+    let tripDistanceKm = 0;
+    let lastLat = null;
+    let lastLng = null;
 
-    // เริ่มระบบติดตามความเร็วจาก GPS โทรศัพท์ทันทีเมื่อโหลดหน้าเว็บ
     window.onload = function() {
         initGPS();
     };
@@ -137,7 +146,8 @@
                     document.getElementById('gpsStatus').innerText = "GPS: READY";
                     document.getElementById('gpsStatus').style.color = "#00e676";
 
-                    // ค่า speed จาก Geolocation API จะมาเป็น m/s แปลงเป็น km/h โดยคูณ 3.6
+                    const lat = position.coords.latitude;
+                    const lng = position.coords.longitude;
                     let speedMps = position.coords.speed;
                     let currentSpeed = 0;
 
@@ -147,28 +157,55 @@
 
                     document.getElementById('speedVal').innerText = currentSpeed;
 
-                    // ตรวจสอบและอัปเดต Max Speed
+                    // อัปเดต Max Speed
                     if (currentSpeed > maxSpeed) {
                         maxSpeed = currentSpeed;
                         document.getElementById('maxSpeedVal').innerText = maxSpeed;
                     }
+
+                    // คำนวณระยะทางสะสม (Trip)
+                    if (lastLat !== null && lastLng !== null) {
+                        let dist = calcDistanceHaversine(lastLat, lastLng, lat, lng);
+                        // กรองสัญญาณขยับมั่ว: สะสมระยะเฉพาะเมื่อรถวิ่งเกิน 1 km/h และระยะห่าง > 3 เมตร
+                        if (currentSpeed > 1 && dist > 0.003) {
+                            tripDistanceKm += dist;
+                            document.getElementById('tripVal').innerText = tripDistanceKm.toFixed(2);
+                        }
+                    }
+
+                    lastLat = lat;
+                    lastLng = lng;
                 },
                 (error) => {
                     document.getElementById('gpsStatus').innerText = "GPS: ERROR";
                     document.getElementById('gpsStatus').style.color = "#ff1744";
                 },
-                {
-                    enableHighAccuracy: true, // เปิดโหมดความแม่นยำสูง
-                    maximumAge: 0,
-                    timeout: 5000
-                }
+                { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 }
             );
         } else {
             document.getElementById('gpsStatus').innerText = "GPS: NOT SUPPORTED";
         }
     }
 
-    // ระบบนาฬิกาและวันที่เรียลไทม์
+    // สูตร Haversine คำนวณระยะทางตามเส้นโค้งโลก (หน่วย: กิโลเมตร)
+    function calcDistanceHaversine(lat1, lon1, lat2, lon2) {
+        const R = 6371; // รัศมีโลก
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLon = (lon2 - lon1) * Math.PI / 180;
+        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                  Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                  Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return R * c;
+    }
+
+    function resetTrip() {
+        if (confirm("ต้องการรีเซ็ตระยะทางสะสม (TRIP) เป็น 0 หรือไม่?")) {
+            tripDistanceKm = 0;
+            document.getElementById('tripVal').innerText = "0.00";
+        }
+    }
+
     setInterval(() => {
         const now = new Date();
         document.getElementById('clock').innerText = now.toTimeString().substring(0,5);
@@ -200,7 +237,6 @@
         const decoder = new TextDecoder('utf-8');
         const dataStr = decoder.decode(event.target.value);
         
-        // รับค่า RPM, TPS ฯลฯ จาก ESP32
         if (dataStr.includes("RPM:")) {
             const parts = dataStr.split('|');
             const currentRpm = parseInt(parts[0].replace(/[^0-9]/g, '')) || 0;
@@ -209,7 +245,6 @@
             document.getElementById('rpmVal').innerText = currentRpm;
             document.getElementById('tpsVal').innerText = currentTps + '°';
 
-            // ตรวจสอบและอัปเดต Max RPM
             if (currentRpm > maxRpm) {
                 maxRpm = currentRpm;
                 document.getElementById('maxRpmVal').innerText = maxRpm;
@@ -217,7 +252,6 @@
         }
     }
 
-    // ฟังก์ชันรีเซ็ตค่าความเร็วสูงสุด/รอบสูงสุด
     function resetMaxValues() {
         if (confirm("ต้องการรีเซ็ตค่า Max Speed และ Max RPM หรือไม่?")) {
             maxSpeed = 0;
