@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ECU Custom Dashboard</title>
+    <style>
+        body { background-color: #0d1117; color: #fff; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; text-align: center; margin: 0; padding: 20px; }
+        .btn-connect { background: #238636; color: white; border: none; padding: 15px 30px; border-radius: 25px; font-size: 18px; font-weight: bold; margin-bottom: 20px; cursor: pointer; box-shadow: 0 4px 12px rgba(35,134,54,0.4); }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; max-width: 400px; margin: 0 auto; }
+        .card { background: #161b22; border: 1px solid #30363d; border-radius: 16px; padding: 20px; box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
+        .card-full { grid-column: span 2; }
+        .val { font-size: 42px; font-weight: 800; color: #58a6ff; margin: 10px 0; }
+        .title { font-size: 14px; color: #8b949e; text-transform: uppercase; letter-spacing: 1px; }
+        .btn-danger { background: #da3633; color: white; border: none; padding: 15px; border-radius: 12px; font-size: 16px; font-weight: bold; width: 100%; margin-top: 10px; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+    <h2>ECU TUNER DASHBOARD</h2>
+    <button class="btn-connect" onclick="connectBLE()">🔌 เชื่อมต่อ Bluetooth</button>
+
+    <div class="grid">
+        <div class="card">
+            <div class="title">รอบเครื่องยนต์</div>
+            <div class="val" id="rpmVal">0</div>
+            <div class="title">RPM</div>
+        </div>
+        <div class="card">
+            <div class="title">ลิ้นผีเสื้อ</div>
+            <div class="val" id="tpsVal" style="color: #3fb950;">0</div>
+            <div class="title">% TPS</div>
+        </div>
+        <div class="card card-full">
+            <button class="btn-danger" onclick="clearDTC()">⚠️ ลบรหัสโค้ดชำรุด (Clear DTC)</button>
+        </div>
+    </div>
+
+    <script>
+        let txCharacteristic;
+
+        async function connectBLE() {
+            try {
+                // ค้นหาอุปกรณ์ BLE
+                const device = await navigator.bluetooth.requestDevice({
+                    filters: [{ name: 'ESP32_ECU_BLE' }],
+                    optionalServices: ['6e400001-b5a3-f393-e0a9-e50e24dcca9e']
+                });
+
+                const server = await device.gatt.connect();
+                const service = await server.getPrimaryService('6e400001-b5a3-f393-e0a9-e50e24dcca9e');
+                
+                // รับข้อมูลจาก ESP32
+                const rxCharacteristic = await service.getCharacteristic('6e400003-b5a3-f393-e0a9-e50e24dcca9e');
+                txCharacteristic = await service.getCharacteristic('6e400002-b5a3-f393-e0a9-e50e24dcca9e');
+
+                await rxCharacteristic.startNotifications();
+                rxCharacteristic.addEventListener('characteristicvaluechanged', handleData);
+                
+                alert("เชื่อมต่อ Bluetooth เรียบร้อย!");
+            } catch (error) {
+                alert("การเชื่อมต่อล้มเหลว: " + error);
+            }
+        }
+
+        function handleData(event) {
+            const decoder = new TextDecoder('utf-8');
+            const dataStr = decoder.decode(event.target.value);
+            
+            // ตัวอย่างข้อความที่ส่งมา "RPM: 1050 | TPS: 2%"
+            if (dataStr.includes("RPM:")) {
+                const parts = dataStr.split('|');
+                const rpm = parts[0].replace(/[^0-9]/g, '');
+                const tps = parts[1].replace(/[^0-9]/g, '');
+                
+                document.getElementById('rpmVal').innerText = rpm;
+                document.getElementById('tpsVal').innerText = tps;
+            }
+        }
+
+        async function clearDTC() {
+            if (txCharacteristic) {
+                const encoder = new TextEncoder();
+                await txCharacteristic.writeValue(encoder.encode('CLEAR'));
+                alert('ส่งคำสั่งลบโค้ดแล้ว');
+            } else {
+                alert('กรุณาเชื่อมต่อ Bluetooth ก่อน');
+            }
+        }
+    </script>
+</body>
+</html>
