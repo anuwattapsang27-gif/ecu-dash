@@ -117,7 +117,19 @@
         </div>
     </div>
 
-    <!-- Protocol Selector & Status Log -->
+    <!-- Connection Status 2 Layers -->
+    <div class="card" style="font-family: monospace; font-size: 11px;">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+            <span style="color: #8d99ae;">ELM connection:</span>
+            <span id="elm-status" style="color: #e63946; font-weight: bold;">Disconnected</span>
+        </div>
+        <div style="display: flex; justify-content: space-between;">
+            <span style="color: #8d99ae;">ECU connection:</span>
+            <span id="ecu-status" style="color: #e63946; font-weight: bold;">Disconnected</span>
+        </div>
+    </div>
+
+    <!-- Status Log -->
     <div class="status-box" id="status-log">สถานะ: รอการเชื่อมต่อ Bluetooth...</div>
 
     <div class="ctrl-row">
@@ -156,9 +168,11 @@
 
         let bluetoothDevice = null, gattServer = null;
         let rxChar = null, txChar = null;
-        let isConnected = false;
+        let isELMConnected = false;
+        let isECUConnected = false;
         let rxBuffer = "";
         let isWaitingResponse = false;
+        let pollingTimer = null;
 
         let maxSpeed = 0, totalDistance = 0, lastLat = null, lastLon = null;
         if ("geolocation" in navigator) {
@@ -186,8 +200,36 @@
             console.log("[OBD LOG]: " + msg);
         }
 
+        function updateConnectionUI() {
+            let elmElem = document.getElementById('elm-status');
+            let ecuElem = document.getElementById('ecu-status');
+            let btnConn = document.getElementById('btn-connect');
+
+            if (isELMConnected) {
+                elmElem.innerText = "Connected";
+                elmElem.style.color = "#00f5d4";
+            } else {
+                elmElem.innerText = "Disconnected";
+                elmElem.style.color = "#e63946";
+            }
+
+            if (isECUConnected) {
+                ecuElem.innerText = "Connected";
+                ecuElem.style.color = "#00f5d4";
+                btnConn.innerText = "🔌 ตัดการเชื่อมต่อ";
+                btnConn.style.background = "#ffb703";
+            } else {
+                ecuElem.innerText = "Disconnected";
+                ecuElem.style.color = "#e63946";
+                if (!isELMConnected) {
+                    btnConn.innerText = "🔌 เชื่อมต่อ OBD2 Bluetooth";
+                    btnConn.style.background = "#00f5d4";
+                }
+            }
+        }
+
         async function toggleConnect() {
-            if (isConnected) {
+            if (isELMConnected || isECUConnected) {
                 disconnectOBD();
             } else {
                 connectOBD2();
@@ -196,7 +238,7 @@
 
         async function connectOBD2() {
             try {
-                updateLog("กำลังค้นหาอุปกรณ์ Bluetooth...");
+                updateLog("กำลังค้นหาอุปกรณ์ Bluetooth ELM327...");
                 bluetoothDevice = await navigator.bluetooth.requestDevice({
                     acceptAllDevices: true,
                     optionalServices: [...UART_SERVICE_UUIDS, 'generic_access']
@@ -206,45 +248,35 @@
                 updateLog("กำลังเชื่อมต่อ GATT Server...");
                 gattServer = await bluetoothDevice.gatt.connect();
 
+                // ชั้นที่ 1: เชื่อมต่อ ELM สำเร็จ
+                isELMConnected = true;
+                updateConnectionUI();
+                updateLog("ELM Connected! กำลังค้นหา Service...");
+
                 let services = await gattServer.getPrimaryServices();
-                if (!services || services.length === 0) {
-                    throw new Error("ไม่พบ Service บนตัว Bluetooth นี้");
-                }
+                if (!services || services.length === 0) throw new Error("ไม่พบ Service บนตัว Bluetooth นี้");
 
                 let service = services[0];
-                updateLog("พบ Service แล้ว กำลังค้นหา Characteristic...");
-
                 let characteristics = await service.getCharacteristics();
                 for (let characteristic of characteristics) {
                     let properties = characteristic.properties;
-                    if (properties.notify || properties.indicate) {
-                        rxChar = characteristic;
-                    }
-                    if (properties.write || properties.writeWithoutResponse) {
-                        txChar = characteristic;
-                    }
+                    if (properties.notify || properties.indicate) rxChar = characteristic;
+                    if (properties.write || properties.writeWithoutResponse) txChar = characteristic;
                 }
 
                 if (!rxChar && characteristics.length > 0) rxChar = characteristics[0];
                 if (!txChar && characteristics.length > 0) txChar = characteristics[0];
-
-                if (!rxChar || !txChar) {
-                    throw new Error("ไม่พบ Characteristic สำหรับรับ-ส่งข้อมูล");
-                }
+                if (!rxChar || !txChar) throw new Error("ไม่พบ Characteristic สำหรับรับ-ส่งข้อมูล");
 
                 await rxChar.startNotifications();
                 rxChar.addEventListener('characteristicvaluechanged', handleBLEData);
 
-                isConnected = true;
-                document.getElementById('btn-connect').innerText = "🔌 ตัดการเชื่อมต่อ";
-                document.getElementById('btn-connect').style.background = "#ffb703";
-
-                updateLog("เชื่อมต่อแล้ว! กำลังตั้งค่า Protocol ELM327...");
+                updateLog("กำลังตั้งค่า Protocol และเชื่อมต่อ ECU รถ...");
                 await setupOBDProtocol();
 
             } catch (error) {
                 updateLog("ข้อผิดพลาด: " + error.message);
-                alert("เชื่อมต่อไม่สำเร็จ: " + error.message + "\n\n*(หากใช้ iOS ต้องเปิดเว็บผ่านแอป Bluefy เท่านั้น)*");
+                alert("เชื่อมต่อไม่สำเร็จ: " + error.message);
                 disconnectOBD();
             }
         }
@@ -263,7 +295,7 @@
         }
 
         async function sendRawCmd(cmd) {
-            if (!isConnected || !txChar) return null;
+            if (!isELMConnected || !txChar) return null;
             return new Promise((resolve) => {
                 let encoder = new TextEncoder();
                 rxBuffer = "";
@@ -312,12 +344,21 @@
                 await sendRawCmd("AT SP 0");
             }
 
-            updateLog("พร้อมอ่านข้อมูลจาก ECU จริงแล้ว");
-            startPollingOBD();
+            // ทดสอบยิง PID เพื่อคอนเฟิร์มว่า ECU ตอบสนอง
+            let testRes = await sendRawCmd("010C");
+            if (testRes && !testRes.includes("NO DATA") && !testRes.includes("TIMEOUT") && !testRes.includes("ERROR")) {
+                // ชั้นที่ 2: เชื่อมต่อ ECU สำเร็จ
+                isECUConnected = true;
+                updateConnectionUI();
+                updateLog("ECU Connected! เริ่มอ่านค่าเรียลไทม์");
+                startPollingOBD();
+            } else {
+                throw new Error("เชื่อมต่อ ELM ติดแล้ว แต่ ECU ไม่ตอบสนอง (ลองเปิดสวิตช์กุญแจรถ)");
+            }
         }
 
         async function startPollingOBD() {
-            if (!isConnected) return;
+            if (!isECUConnected) return;
 
             await sendRawCmd("010C");
             await sendRawCmd("0111");
@@ -327,7 +368,9 @@
             await sendRawCmd("0114");
             await sendRawCmd("0142");
 
-            if (isConnected) setTimeout(startPollingOBD, 200);
+            if (isECUConnected) {
+                pollingTimer = setTimeout(startPollingOBD, 200);
+            }
         }
 
         function parseOBDData(hexStr) {
@@ -385,6 +428,7 @@
         }
 
         function disconnectOBD() {
+            if (pollingTimer) clearTimeout(pollingTimer);
             if (bluetoothDevice && bluetoothDevice.gatt.connected) {
                 bluetoothDevice.gatt.disconnect();
             }
@@ -392,9 +436,9 @@
         }
 
         function onDisconnected() {
-            isConnected = false;
-            document.getElementById('btn-connect').innerText = "🔌 เชื่อมต่อ OBD2 Bluetooth";
-            document.getElementById('btn-connect').style.background = "#00f5d4";
+            isELMConnected = false;
+            isECUConnected = false;
+            updateConnectionUI();
             document.getElementById('rpm').innerText = "---";
             document.getElementById('tps').innerText = "---";
             document.getElementById('map').innerText = "---";
@@ -410,7 +454,7 @@
         function closeDtcPopup() { document.getElementById('dtc-modal').style.display = 'none'; }
         
         async function readRealDTC() {
-            if (!isConnected) { alert("กรุณาเชื่อมต่อ Bluetooth ก่อนครับ"); return; }
+            if (!isECUConnected) { alert("กรุณาเชื่อมต่อ ECU ก่อนครับ"); return; }
             document.getElementById('dtc-box').innerText = "กำลังสแกนหาคำสั่ง Mode 03 จาก ECU...";
             let res = await sendRawCmd("03");
             if (!res || res.includes("NO DATA")) {
@@ -421,7 +465,7 @@
         }
 
         async function clearRealDTC() {
-            if (!isConnected) { alert("กรุณาเชื่อมต่อ Bluetooth ก่อนครับ"); return; }
+            if (!isECUConnected) { alert("กรุณาเชื่อมต่อ ECU ก่อนครับ"); return; }
             if (confirm("คุณแน่ใจหรือไม่ว่าต้องการส่งคำสั่งลบโค้ดความผิดปกติ (Mode 04) ไปยัง ECU?")) {
                 document.getElementById('dtc-box').innerText = "กำลังส่งคำสั่ง Clear DTC (Mode 04)...";
                 let res = await sendRawCmd("04");
