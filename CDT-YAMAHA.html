@@ -1,7 +1,202 @@
-        // Web Bluetooth Connect Implementation (Modified for Universal OBD2 / ELM327)
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>YAMAHA ECU DASHBOARD REAL PROTOCOL</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Tahoma", sans-serif; }
+        body { background-color: #0f0f11; color: #ffffff; padding: 10px; min-height: 100vh; }
+        .header { text-align: center; color: #e63946; font-size: 16px; font-weight: bold; margin-bottom: 8px; }
+        .card { background: #18181c; border: 1px solid #2a2a30; border-radius: 10px; padding: 8px 12px; margin-bottom: 8px; }
+        
+        /* GPS Section */
+        .gps-grid { display: flex; justify-content: space-between; align-items: center; background: #18181c; border: 1px solid #2a2a30; border-radius: 10px; padding: 8px 15px; margin-bottom: 8px; }
+        .gps-sub { text-align: center; }
+        .gps-sub-title { font-size: 10px; color: #8d99ae; }
+        .gps-sub-val { font-size: 16px; font-weight: bold; color: #ff9f1c; font-family: monospace; }
+        .gps-main { text-align: center; }
+        .gps-main-val { font-size: 32px; font-weight: bold; color: #00f5d4; font-family: 'Impact', sans-serif; }
+
+        /* RPM Section */
+        .rpm-card { text-align: center; background: #18181c; border: 1px solid #2a2a30; border-radius: 10px; padding: 6px; margin-bottom: 8px; }
+        .rpm-title { font-size: 11px; color: #8d99ae; font-weight: bold; }
+        .rpm-val { font-size: 44px; font-weight: bold; color: #00f5d4; font-family: 'Impact', monospace; line-height: 1; }
+
+        /* Main Grid */
+        .grid-3 { display: flex; gap: 6px; margin-bottom: 8px; }
+        .grid-item { flex: 1; background: #18181c; border-radius: 8px; padding: 6px; }
+        .card-afr { border: 1px solid #00f5d4; }
+        .card-tps { border: 1px solid #fee440; }
+        .card-map { border: 1px solid #ff9f1c; }
+        .item-head { display: flex; justify-content: space-between; font-size: 10px; font-weight: bold; }
+        .item-val { font-size: 20px; font-weight: bold; text-align: right; margin-top: 4px; font-family: monospace; }
+
+        /* Sub Sensors */
+        .sensor-row { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px; border-bottom: 1px solid #222228; padding-bottom: 3px; }
+        .sensor-row:last-child { border-bottom: none; margin-bottom: 0; }
+        .sensor-title { color: #8d99ae; }
+        .sensor-val { font-weight: bold; font-family: monospace; }
+
+        /* Status & Log */
+        .status-box { font-size: 10px; color: #ff9f1c; background: #111; padding: 4px 8px; border-radius: 4px; margin-bottom: 8px; font-family: monospace; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+        /* Controls */
+        .ctrl-row { display: flex; gap: 6px; margin-bottom: 6px; }
+        select { background: #2a2a30; color: #fff; border: 1px solid #444; padding: 8px; border-radius: 6px; font-size: 11px; flex: 1; }
+        button { border: none; border-radius: 8px; font-weight: bold; font-size: 12px; padding: 10px; cursor: pointer; }
+        .btn-conn { background: #00f5d4; color: #000; flex: 1; }
+        .btn-dtc { background: #e63946; color: #fff; flex: 1; }
+
+        /* Modal */
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); justify-content: center; align-items: center; padding: 15px; z-index: 99; }
+        .modal-content { background: #18181c; border: 1px solid #e63946; border-radius: 12px; width: 100%; max-width: 400px; padding: 15px; }
+        .dtc-box { background: #0f0f11; border-radius: 6px; padding: 10px; font-size: 12px; height: 180px; overflow-y: auto; white-space: pre-line; margin: 10px 0; border: 1px solid #2a2a30; font-family: monospace; }
+    </style>
+</head>
+<body>
+
+    <div class="header">YAMAHA ECU MONITOR & DIAGNOSTIC (REAL)</div>
+
+    <!-- GPS -->
+    <div class="gps-grid">
+        <div class="gps-sub">
+            <div class="gps-sub-title">MAX (km/h)</div>
+            <div id="gps-max" class="gps-sub-val">0</div>
+        </div>
+        <div class="gps-main">
+            <div class="gps-sub-title">GPS SPEED</div>
+            <div id="gps-speed" class="gps-main-val">0</div>
+            <div class="gps-sub-title">km/h</div>
+        </div>
+        <div class="gps-sub">
+            <div class="gps-sub-title">TRIP (km)</div>
+            <div id="gps-dist" class="gps-sub-val">0.00</div>
+        </div>
+    </div>
+
+    <!-- RPM -->
+    <div class="rpm-card">
+        <div class="rpm-title">รอบเครื่องยนต์ (RPM)</div>
+        <div id="rpm" class="rpm-val">---</div>
+    </div>
+
+    <!-- Main Sensors -->
+    <div class="grid-3">
+        <div class="grid-item card-afr">
+            <div class="item-head"><span style="color:#00f5d4;">AFR</span><span id="afr-status" style="color:#00f5d4;">[STOICH]</span></div>
+            <div id="afr" class="item-val">---</div>
+        </div>
+        <div class="grid-item card-tps">
+            <div class="item-head"><span style="color:#fee440;">TPS (%)</span></div>
+            <div id="tps" class="item-val">---</div>
+        </div>
+        <div class="grid-item card-map">
+            <div class="item-head"><span style="color:#ff9f1c;">MAP (kPa)</span></div>
+            <div id="map" class="item-val">---</div>
+        </div>
+    </div>
+
+    <!-- Sub Sensors -->
+    <div class="card">
+        <div class="sensor-row">
+            <span class="sensor-title">แรงดัน O2 Sensor (V)</span>
+            <span><span id="o2-volt" class="sensor-val">---</span> V</span>
+        </div>
+        <div class="sensor-row">
+            <span class="sensor-title">ความร้อนเครื่องยนต์ (ECT)</span>
+            <span><span id="ect" class="sensor-val">---</span> °C</span>
+        </div>
+        <div class="sensor-row">
+            <span class="sensor-title">อุณหภูมิอากาศไอดี (IAT)</span>
+            <span><span id="iat" class="sensor-val">---</span> °C</span>
+        </div>
+        <div class="sensor-row">
+            <span class="sensor-title">แรงดันแบตเตอรี่ (BAT)</span>
+            <span><span id="bat" class="sensor-val">---</span> V</span>
+        </div>
+    </div>
+
+    <!-- Protocol Selector & Status Log -->
+    <div class="status-box" id="status-log">สถานะ: รอการเชื่อมต่อ Bluetooth...</div>
+
+    <div class="ctrl-row">
+        <select id="protocol-select">
+            <option value="AUTO">โปรโตคอล: อัตโนมัติ (AUTO)</option>
+            <option value="KWP_FAST">YAMAHA K-Line (ISO 14230-4 Fast)</option>
+            <option value="CAN_500">YAMAHA CAN Bus (ISO 15765-4 500k)</option>
+        </select>
+    </div>
+
+    <!-- Controls -->
+    <div class="ctrl-row">
+        <button id="btn-connect" class="btn-conn" onclick="toggleConnect()">🔌 เชื่อมต่อ OBD2 Bluetooth</button>
+        <button class="btn-dtc" onclick="openDtcPopup()">📋 ตรวจเช็กโค้ด DTC</button>
+    </div>
+
+    <!-- DTC Popup -->
+    <div id="dtc-modal" class="modal">
+        <div class="modal-content">
+            <div style="font-size: 14px; font-weight: bold; color: #e63946;">📋 รายงานวิเคราะห์โค้ดความผิดปกติ ECU</div>
+            <div id="dtc-box" class="dtc-box">กดปุ่ม 'อ่านโค้ดจริง' เพื่อสแกนจาก ECU...</div>
+            <div class="ctrl-row">
+                <button style="background:#ff9f1c; color:#000; flex:1;" onclick="readRealDTC()">อ่านโค้ดจริง</button>
+                <button style="background:#e63946; color:#fff; flex:1;" onclick="clearRealDTC()">ลบโค้ด ECU</button>
+                <button style="background:#2a2a30; color:#fff; width: 60px;" onclick="closeDtcPopup()">ปิด</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const UART_SERVICE_UUIDS = [
+            '0000fff0-0000-1000-8000-0800200c9a66',
+            '00001101-0000-1000-8000-0800200c9a66',
+            '0000ffe0-0000-1000-8000-0800200c9a66'
+        ];
+
+        let bluetoothDevice = null, gattServer = null;
+        let rxChar = null, txChar = null;
+        let isConnected = false;
+        let rxBuffer = "";
+        let isWaitingResponse = false;
+
+        let maxSpeed = 0, totalDistance = 0, lastLat = null, lastLon = null;
+        if ("geolocation" in navigator) {
+            navigator.geolocation.watchPosition(pos => {
+                let speed = Math.round((pos.coords.speed || 0) * 3.6);
+                document.getElementById('gps-speed').innerText = speed;
+                if (speed > maxSpeed) { maxSpeed = speed; document.getElementById('gps-max').innerText = maxSpeed; }
+                if (lastLat !== null && lastLon !== null) {
+                    totalDistance += calcDist(lastLat, lastLon, pos.coords.latitude, pos.coords.longitude);
+                    document.getElementById('gps-dist').innerText = totalDistance.toFixed(2);
+                }
+                lastLat = pos.coords.latitude; lastLon = pos.coords.longitude;
+            }, err => {}, { enableHighAccuracy: true });
+        }
+
+        function calcDist(lat1, lon1, lat2, lon2) {
+            let R = 6371;
+            let dLat = (lat2 - lat1) * Math.PI / 180, dLon = (lon2 - lon1) * Math.PI / 180;
+            let a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLon/2)**2;
+            return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
+        }
+
+        function updateLog(msg) {
+            document.getElementById('status-log').innerText = "สถานะ: " + msg;
+            console.log("[OBD LOG]: " + msg);
+        }
+
+        async function toggleConnect() {
+            if (isConnected) {
+                disconnectOBD();
+            } else {
+                connectOBD2();
+            }
+        }
+
         async function connectOBD2() {
             try {
-                updateLog("กำลังค้นหาอุปกรณ์ Bluetooth ELM327...");
+                updateLog("กำลังค้นหาอุปกรณ์ Bluetooth...");
                 bluetoothDevice = await navigator.bluetooth.requestDevice({
                     acceptAllDevices: true,
                     optionalServices: [...UART_SERVICE_UUIDS, 'generic_access']
@@ -11,32 +206,25 @@
                 updateLog("กำลังเชื่อมต่อ GATT Server...");
                 gattServer = await bluetoothDevice.gatt.connect();
 
-                // ดึง Service ทั้งหมดที่อุปกรณ์ปล่อยออกมาแบบอัตโนมัติ (แก้ปัญหาไม่พบ Service UART)
                 let services = await gattServer.getPrimaryServices();
                 if (!services || services.length === 0) {
                     throw new Error("ไม่พบ Service บนตัว Bluetooth นี้");
                 }
 
-                // เลือก Service ตัวแรกที่อุปกรณ์รองรับ
                 let service = services[0];
                 updateLog("พบ Service แล้ว กำลังค้นหา Characteristic...");
 
-                // ดึง Characteristic ทั้งหมดภายใน Service นั้น เพื่อหาช่องทางรับ-ส่งข้อมูล (RX/TX)
                 let characteristics = await service.getCharacteristics();
-                
                 for (let characteristic of characteristics) {
                     let properties = characteristic.properties;
-                    // ถ้าซัพพอร์ต Notify หรือ Indicate ให้ใช้เป็นขาอ่านข้อมูล (RX)
                     if (properties.notify || properties.indicate) {
                         rxChar = characteristic;
                     }
-                    // ถ้าซัพพอร์ต Write หรือ WriteWithoutResponse ให้ใช้เป็นขาเขียนคำสั่ง (TX)
                     if (properties.write || properties.writeWithoutResponse) {
                         txChar = characteristic;
                     }
                 }
 
-                // กรณีหาแยกไม่ได้ ให้ใช้ตัวเดียวกัน (Fallback)
                 if (!rxChar && characteristics.length > 0) rxChar = characteristics[0];
                 if (!txChar && characteristics.length > 0) txChar = characteristics[0];
 
@@ -60,3 +248,186 @@
                 disconnectOBD();
             }
         }
+
+        function handleBLEData(event) {
+            let decoder = new TextDecoder('utf-8');
+            let str = decoder.decode(event.target.value);
+            rxBuffer += str;
+
+            if (rxBuffer.includes(">")) {
+                let response = rxBuffer.replace(">", "").trim();
+                rxBuffer = "";
+                isWaitingResponse = false;
+                processELMResponse(response);
+            }
+        }
+
+        async function sendRawCmd(cmd) {
+            if (!isConnected || !txChar) return null;
+            return new Promise((resolve) => {
+                let encoder = new TextEncoder();
+                rxBuffer = "";
+                isWaitingResponse = true;
+
+                let timeout = setTimeout(() => {
+                    isWaitingResponse = false;
+                    resolve("TIMEOUT");
+                }, 2000);
+
+                window.currentCmdResolver = (res) => {
+                    clearTimeout(timeout);
+                    resolve(res);
+                };
+
+                txChar.writeValue(encoder.encode(cmd + "\r"));
+            });
+        }
+
+        function processELMResponse(res) {
+            if (window.currentCmdResolver) {
+                let resolver = window.currentCmdResolver;
+                window.currentCmdResolver = null;
+                resolver(res);
+            }
+            parseOBDData(res);
+        }
+
+        async function setupOBDProtocol() {
+            let protoChoice = document.getElementById('protocol-select').value;
+            
+            await sendRawCmd("AT Z");
+            await sendRawCmd("AT E0");
+            await sendRawCmd("AT L0");
+            await sendRawCmd("AT H1");
+
+            if (protoChoice === "KWP_FAST") {
+                updateLog("ตั้งค่า ISO 14230-4 KWP Fast Init...");
+                await sendRawCmd("AT SP 5");
+                await sendRawCmd("AT SH 81 11 F1");
+            } else if (protoChoice === "CAN_500") {
+                updateLog("ตั้งค่า ISO 15765-4 CAN 500kBbaud...");
+                await sendRawCmd("AT SP 6");
+            } else {
+                updateLog("ตั้งค่า Search Protocol อัตโนมัติ...");
+                await sendRawCmd("AT SP 0");
+            }
+
+            updateLog("พร้อมอ่านข้อมูลจาก ECU จริงแล้ว");
+            startPollingOBD();
+        }
+
+        async function startPollingOBD() {
+            if (!isConnected) return;
+
+            await sendRawCmd("010C");
+            await sendRawCmd("0111");
+            await sendRawCmd("010B");
+            await sendRawCmd("0105");
+            await sendRawCmd("010F");
+            await sendRawCmd("0114");
+            await sendRawCmd("0142");
+
+            if (isConnected) setTimeout(startPollingOBD, 200);
+        }
+
+        function parseOBDData(hexStr) {
+            if (!hexStr || hexStr.includes("NO DATA") || hexStr.includes("ERROR")) return;
+
+            let bytes = hexStr.split(" ").filter(b => b.length === 2);
+            
+            for (let i = 0; i < bytes.length; i++) {
+                if (bytes[i] === "41") {
+                    let pid = bytes[i+1];
+                    
+                    if (pid === "0C" && bytes[i+3]) {
+                        let a = parseInt(bytes[i+2], 16);
+                        let b = parseInt(bytes[i+3], 16);
+                        let rpm = Math.round(((a * 256) + b) / 4);
+                        document.getElementById('rpm').innerText = rpm;
+                    }
+                    
+                    if (pid === "11" && bytes[i+2]) {
+                        let a = parseInt(bytes[i+2], 16);
+                        let tps = ((a * 100) / 255).toFixed(1);
+                        document.getElementById('tps').innerText = tps;
+                    }
+
+                    if (pid === "0B" && bytes[i+2]) {
+                        let map = parseInt(bytes[i+2], 16);
+                        document.getElementById('map').innerText = map;
+                    }
+
+                    if (pid === "05" && bytes[i+2]) {
+                        let ect = parseInt(bytes[i+2], 16) - 40;
+                        document.getElementById('ect').innerText = ect;
+                    }
+
+                    if (pid === "0F" && bytes[i+2]) {
+                        let iat = parseInt(bytes[i+2], 16) - 40;
+                        document.getElementById('iat').innerText = iat;
+                    }
+
+                    if (pid === "14" && bytes[i+2]) {
+                        let volt = (parseInt(bytes[i+2], 16) / 200).toFixed(2);
+                        document.getElementById('o2-volt').innerText = volt;
+                        let afr = (14.7 + (volt - 0.45) * 2).toFixed(1);
+                        document.getElementById('afr').innerText = afr;
+                    }
+
+                    if (pid === "42" && bytes[i+3]) {
+                        let a = parseInt(bytes[i+2], 16);
+                        let b = parseInt(bytes[i+3], 16);
+                        let bat = (((a * 256) + b) / 1000).toFixed(1);
+                        document.getElementById('bat').innerText = bat;
+                    }
+                }
+            }
+        }
+
+        function disconnectOBD() {
+            if (bluetoothDevice && bluetoothDevice.gatt.connected) {
+                bluetoothDevice.gatt.disconnect();
+            }
+            onDisconnected();
+        }
+
+        function onDisconnected() {
+            isConnected = false;
+            document.getElementById('btn-connect').innerText = "🔌 เชื่อมต่อ OBD2 Bluetooth";
+            document.getElementById('btn-connect').style.background = "#00f5d4";
+            document.getElementById('rpm').innerText = "---";
+            document.getElementById('tps').innerText = "---";
+            document.getElementById('map').innerText = "---";
+            document.getElementById('afr').innerText = "---";
+            document.getElementById('o2-volt').innerText = "---";
+            document.getElementById('ect').innerText = "---";
+            document.getElementById('iat').innerText = "---";
+            document.getElementById('bat').innerText = "---";
+            updateLog("ตัดการเชื่อมต่อแล้ว");
+        }
+
+        function openDtcPopup() { document.getElementById('dtc-modal').style.display = 'flex'; }
+        function closeDtcPopup() { document.getElementById('dtc-modal').style.display = 'none'; }
+        
+        async function readRealDTC() {
+            if (!isConnected) { alert("กรุณาเชื่อมต่อ Bluetooth ก่อนครับ"); return; }
+            document.getElementById('dtc-box').innerText = "กำลังสแกนหาคำสั่ง Mode 03 จาก ECU...";
+            let res = await sendRawCmd("03");
+            if (!res || res.includes("NO DATA")) {
+                document.getElementById('dtc-box').innerText = "✅ ไม่พบโค้ดความผิดปกติ (NO DTC FOUND)";
+            } else {
+                document.getElementById('dtc-box').innerText = "พบการตอบรับโค้ดความผิดปกติ:\n" + res;
+            }
+        }
+
+        async function clearRealDTC() {
+            if (!isConnected) { alert("กรุณาเชื่อมต่อ Bluetooth ก่อนครับ"); return; }
+            if (confirm("คุณแน่ใจหรือไม่ว่าต้องการส่งคำสั่งลบโค้ดความผิดปกติ (Mode 04) ไปยัง ECU?")) {
+                document.getElementById('dtc-box').innerText = "กำลังส่งคำสั่ง Clear DTC (Mode 04)...";
+                let res = await sendRawCmd("04");
+                document.getElementById('dtc-box').innerText = "ส่งคำสั่งลบโค้ดเรียบร้อยแล้ว:\n" + res;
+            }
+        }
+    </script>
+</body>
+</html>
