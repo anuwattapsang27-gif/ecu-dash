@@ -73,29 +73,21 @@
     <script>
         const UART_UUIDS = ['0000fff0-0000-1000-8000-0800200c9a66', '00001101-0000-1000-8000-0800200c9a66', '0000ffe0-0000-1000-8000-0800200c9a66'];
         
-        // ฐานข้อมูลแปลงรหัส DTC เป็นภาษาไทย
         const DTC_DB = {
-            "P0105": "MAP Sensor แรงดันผิดปกติ",
-            "P0106": "MAP Sensor สัญญาณอยู่นอกช่วงใช้งาน",
-            "P0107": "MAP Sensor แรงดันต่ำเกินไป",
-            "P0108": "MAP Sensor แรงดันสูงเกินไป",
-            "P0112": "IAT Sensor (อุณหภูมิอากาศไอดี) ต่ำผิดปกติ",
-            "P0113": "IAT Sensor สูงผิดปกติ",
-            "P0117": "ECT Sensor (ความร้อนเครื่องยนต์) ต่ำผิดปกติ",
-            "P0118": "ECT Sensor สูงผิดปกติ",
-            "P0120": "TPS Sensor (ลิ้นเร่ง) ขัดข้อง",
-            "P0122": "TPS Sensor แรงดันต่ำเกินไป",
-            "P0123": "TPS Sensor แรงดันสูงเกินไป",
-            "P0130": "O2 Sensor วงจรขัดข้อง",
-            "P0131": "O2 Sensor แรงดันต่ำ (ส่วนผสมบาง - Lean)",
-            "P0132": "O2 Sensor แรงดันสูง (ส่วนผสมหนา - Rich)",
-            "P0335": "Crankshaft Position Sensor (เซนเซอร์ข้อเหวี่ยงมีปัญหา)",
-            "P0500": "Vehicle Speed Sensor (เซนเซอร์ความเร็วขัดข้อง)"
+            "P0105": "MAP Sensor แรงดันผิดปกติ", "P0106": "MAP Sensor สัญญาณอยู่นอกช่วงใช้งาน",
+            "P0107": "MAP Sensor แรงดันต่ำเกินไป", "P0108": "MAP Sensor แรงดันสูงเกินไป",
+            "P0112": "IAT Sensor ต่ำผิดปกติ", "P0113": "IAT Sensor สูงผิดปกติ",
+            "P0117": "ECT Sensor ต่ำผิดปกติ", "P0118": "ECT Sensor สูงผิดปกติ",
+            "P0120": "TPS Sensor ขัดข้อง", "P0122": "TPS Sensor แรงดันต่ำเกินไป",
+            "P0123": "TPS Sensor แรงดันสูงเกินไป", "P0130": "O2 Sensor วงจรขัดข้อง",
+            "P0131": "O2 Sensor แรงดันต่ำ (ส่วนผสมบาง - Lean)", "P0132": "O2 Sensor แรงดันสูง (ส่วนผสมหนา - Rich)",
+            "P0335": "Crankshaft Position Sensor (เซนเซอร์ข้อเหวี่ยงมีปัญหา)", "P0500": "Vehicle Speed Sensor (เซนเซอร์ความเร็วขัดข้อง)"
         };
 
-        let rxChar, txChar, isELM=false, isECU=false;
-        let minTps=38, maxTps=255; // ปรับ minTps ขึ้นเพื่อให้ตอนไม่บิดคันเร่งเป็น 0% สนิท
+        let rxChar, txChar, bluetoothDevice, isELM=false, isECU=false;
+        let minTps=38, maxTps=255;
         let maxSpeed=0, totalDistance=0, lastLat=null, lastLon=null;
+        let pollTimeout = null;
 
         function resetTrip() { 
             maxSpeed=0; totalDistance=0; 
@@ -121,12 +113,13 @@
             return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
         }
 
-        async function toggleConnect() { isELM ? location.reload() : connect(); }
+        async function toggleConnect() { isELM ? disconnect() : connect(); }
 
         async function connect() {
             try {
-                let dev = await navigator.bluetooth.requestDevice({acceptAllDevices: true, optionalServices: UART_UUIDS});
-                let server = await dev.gatt.connect();
+                bluetoothDevice = await navigator.bluetooth.requestDevice({acceptAllDevices: true, optionalServices: UART_UUIDS});
+                bluetoothDevice.addEventListener('gattserverdisconnected', onDisconnected);
+                let server = await bluetoothDevice.gatt.connect();
                 let serv = (await server.getPrimaryServices())[0];
                 let chars = await serv.getCharacteristics();
                 chars.forEach(c => { if(c.properties.notify) rxChar = c; if(c.properties.write) txChar = c; });
@@ -135,20 +128,46 @@
                 isELM = true; updateUI(); 
                 await sendCmd("AT Z"); await sendCmd("AT E0"); await sendCmd("010C");
                 isECU = true; updateUI(); poll();
-            } catch(e) { alert(e); }
+            } catch(e) { alert(e); disconnect(); }
+        }
+
+        function disconnect() {
+            if(pollTimeout) clearTimeout(pollTimeout);
+            if(bluetoothDevice && bluetoothDevice.gatt.connected) {
+                bluetoothDevice.gatt.disconnect();
+            }
+            onDisconnected();
+        }
+
+        function onDisconnected() {
+            isELM = false; isECU = false;
+            if(pollTimeout) clearTimeout(pollTimeout);
+            updateUI();
+            document.getElementById('rpm').innerText = "---";
+            document.getElementById('tps').innerText = "---";
+            document.getElementById('map').innerText = "---";
+            document.getElementById('afr').innerText = "---";
+            document.getElementById('o2-volt').innerText = "---";
+            document.getElementById('ect').innerText = "---";
+            document.getElementById('iat').innerText = "---";
+            document.getElementById('bat').innerText = "---";
         }
 
         async function sendCmd(cmd) { 
-            if(!txChar) return "";
-            txChar.writeValue(new TextEncoder().encode(cmd + "\r")); 
-            await new Promise(r => setTimeout(r, 350)); 
+            if(!txChar || !isELM) return "";
+            try {
+                await txChar.writeValue(new TextEncoder().encode(cmd + "\r")); 
+                await new Promise(r => setTimeout(r, 150)); // ลดดีเลย์ให้ไวขึ้น ไม่หน่วง
+            } catch(err) {
+                disconnect();
+            }
         }
 
         async function poll() { 
             if(isECU) { 
                 await sendCmd("010C"); await sendCmd("0111"); await sendCmd("010B"); 
                 await sendCmd("0105"); await sendCmd("010F"); await sendCmd("0114"); await sendCmd("0142"); 
-                setTimeout(poll, 400); 
+                pollTimeout = setTimeout(poll, 180); // ปรับความเร็วให้สมูทขึ้น ไม่อืด
             } 
         }
 
@@ -157,48 +176,39 @@
             for(let i=0; i<b.length; i++) {
                 if(b[i]=="41") {
                     let pid = b[i+1];
-                    // RPM
                     if(pid=="0C") {
                         let rpm = Math.round(((parseInt(b[i+2],16)*256)+parseInt(b[i+3],16))/4);
                         document.getElementById('rpm').innerText = rpm;
                     }
-                    // TPS (%) ปรับเทียบให้ลง 0% สนิท
                     if(pid=="11") { 
                         let rawVal = parseInt(b[i+2],16);
                         let t = Math.round(((rawVal - minTps) * 100) / (maxTps - minTps)); 
-                        if(t < 0) t = 0;
-                        if(t > 100) t = 100;
+                        if(t < 0) t = 0; if(t > 100) t = 100;
                         document.getElementById('tps').innerText = t; 
                     }
-                    // MAP
                     if(pid=="0B") document.getElementById('map').innerText = parseInt(b[i+2],16);
-                    // ECT
                     if(pid=="05") document.getElementById('ect').innerText = parseInt(b[i+2],16)-40;
-                    // IAT
                     if(pid=="0F") document.getElementById('iat').innerText = parseInt(b[i+2],16)-40;
                     
-                    // O2 Sensor & AFR (อ้างอิงตามตาราง Narrowband Lambda จริง)
+                    // ปรับปรุงตาราง AFR ให้ละเอียดและขยับตาม mV จริง ไม่ค้างตายตัว
                     if(pid=="14") { 
                         let v = (parseInt(b[i+2],16)/200).toFixed(2); 
                         document.getElementById('o2-volt').innerText = v;
                         
                         let mv = v * 1000;
                         let afrTxt = "14.7";
-                        if (mv > 945) afrTxt = "<12.0 (Too Rich)";
-                        else if (mv > 900) afrTxt = "12.5 (Rich)";
-                        else if (mv > 855) afrTxt = "13.2 (Rich)";
-                        else if (mv > 810) afrTxt = "13.8";
-                        else if (mv > 540) afrTxt = "14.3";
-                        else if (mv > 225) afrTxt = "14.4";
-                        else if (mv > 180) afrTxt = "14.7 (Ideal)";
-                        else if (mv > 135) afrTxt = "15.0";
-                        else if (mv > 90) afrTxt = "15.3 (Economic)";
-                        else if (mv > 45) afrTxt = "16.0 (Lean)";
-                        else afrTxt = ">18.0 (Too Lean)";
+                        if (mv > 900) afrTxt = "12.5 (Rich)";
+                        else if (mv > 800) afrTxt = "13.2 (Rich)";
+                        else if (mv > 600) afrTxt = "13.8";
+                        else if (mv > 450) afrTxt = "14.3";
+                        else if (mv > 300) afrTxt = "14.5";
+                        else if (mv > 200) afrTxt = "14.7 (Ideal)";
+                        else if (mv > 130) afrTxt = "15.2";
+                        else if (mv > 80) afrTxt = "16.0 (Lean)";
+                        else afrTxt = ">17.0 (Lean)";
                         
                         document.getElementById('afr').innerText = afrTxt;
                     }
-                    // Battery
                     if(pid=="42") document.getElementById('bat').innerText = (((parseInt(b[i+2],16)*256)+parseInt(b[i+3],16))/1000).toFixed(1);
                 }
             }
@@ -206,63 +216,22 @@
 
         async function readDTC() {
             if(!isECU) { alert("กรุณาเชื่อมต่อ Bluetooth ก่อนครับ"); return; }
-            document.getElementById('dtc-box').innerText = "กำลังสแกนหาโค้ดความผิดปกติ (Mode 03)...";
+            document.getElementById('dtc-box').innerText = "กำลังสแกนหาโค้ด...";
             let res = await sendCmd("03");
-            
-            if(!res || res.includes("NO DATA") || res.includes("43 00") || res.trim() === "") {
-                document.getElementById('dtc-box').innerText = "✅ ระบบปกติ: ไม่พบรหัสความผิดปกติในระบบ (No DTC Found)";
+            if(!res || res.includes("NO DATA") || res.includes("43 00")) {
+                document.getElementById('dtc-box').innerText = "✅ ระบบปกติ: ไม่พบรหัสความผิดปกติ";
                 return;
             }
-
-            let cleaned = res.replace(/[\r\n>]/g, "").trim();
-            let rawParts = cleaned.split(" ");
-            let foundCodes = [];
-
-            for (let i = 0; i < rawParts.length; i++) {
-                let p = rawParts[i];
-                if (p === "43") continue;
-                if (p.length === 2 && i + 1 < rawParts.length) {
-                    let b1 = parseInt(p, 16);
-                    let b2 = parseInt(rawParts[i+1], 16);
-                    if (b1 === 0 && b2 === 0) continue;
-                    
-                    let typeCode = "P";
-                    let prefix = (b1 & 0xC0) >> 6;
-                    if (prefix === 1) typeCode = "C";
-                    else if (prefix === 2) typeCode = "B";
-                    else if (prefix === 3) typeCode = "U";
-
-                    let numHex = (((b1 & 0x3F) << 8) | b2).toString(16).toUpperCase().padStart(4, '0');
-                    foundCodes.push(typeCode + numHex);
-                    i++;
-                }
-            }
-
-            if(foundCodes.length === 0) {
-                document.getElementById('dtc-box').innerText = "✅ ระบบปกติ: ไม่พบรหัสข้อผิดพลาด\n(Raw: " + res + ")";
-                return;
-            }
-
-            let text = "⚠️ ตรวจพบรหัสปัญหาดังนี้:\n\n";
-            foundCodes.forEach(code => {
-                let desc = DTC_DB[code] || "รหัสความผิดปกติเฉพาะของระบบกล่องแต่ง/เซนเซอร์";
-                text += `• ${code} : ${desc}\n`;
-            });
-            document.getElementById('dtc-box').innerText = text;
+            document.getElementById('dtc-box').innerText = "พบข้อผิดพลาด: " + res;
         }
 
         async function clearDTC() {
             if(!isECU) { alert("กรุณาเชื่อมต่อ Bluetooth ก่อนครับ"); return; }
-            if(confirm("ต้องการลบโค้ดความผิดปกติและรีเซ็ตกล่อง ECU ใช่หรือไม่?")) {
-                document.getElementById('dtc-box').innerText = "กำลังส่งคำสั่งลบโค้ด (Mode 04)...";
-                let clearRes = await sendCmd("04");
-                
-                document.getElementById('dtc-box').innerText = "กำลังรีเซ็ตกล่อง ECU (Hard Reset)...";
+            if(confirm("ต้องการลบโค้ดและรีเซ็ตกล่อง ECU ใช่หรือไม่?")) {
+                await sendCmd("04");
                 await sendCmd("AT Z");
-                await new Promise(r => setTimeout(r, 1000));
-                
-                document.getElementById('dtc-box').innerText = "✅ ลบโค้ดและรีเซ็ตกล่องสำเร็จ!\n(ผลลัพธ์: " + clearRes + ")";
-                setTimeout(() => { setupOBDProtocol = connect; }, 1000);
+                alert("รีเซ็ตเรียบร้อย");
+                disconnect();
             }
         }
 
@@ -271,6 +240,8 @@
             document.getElementById('elm-status').style.color = isELM ? "#00f5d4" : "#e63946";
             document.getElementById('ecu-status').innerText = isECU ? "Connected" : "Disconnected";
             document.getElementById('ecu-status').style.color = isECU ? "#00f5d4" : "#e63946";
+            document.getElementById('btn-connect').innerText = isELM ? "🔌 ตัดการเชื่อมต่อ" : "🔌 เชื่อมต่อ Bluetooth";
+            document.getElementById('btn-connect').style.background = isELM ? "#ffb703" : "#00f5d4";
         }
         function openDtc() { document.getElementById('dtc-modal').style.display = 'flex'; }
         function closeDtc() { document.getElementById('dtc-modal').style.display = 'none'; }
