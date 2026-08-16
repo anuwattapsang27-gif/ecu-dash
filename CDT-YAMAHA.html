@@ -9,166 +9,98 @@
         body { background-color: #0f0f11; color: #ffffff; padding: 10px; min-height: 100vh; }
         .header { text-align: center; color: #e63946; font-size: 18px; font-weight: bold; margin-bottom: 8px; }
         .card { background: #18181c; border: 1px solid #2a2a30; border-radius: 10px; padding: 8px 12px; margin-bottom: 8px; }
-        .gps-grid { display: flex; justify-content: space-between; align-items: center; background: #18181c; border: 1px solid #2a2a30; border-radius: 10px; padding: 8px 15px; margin-bottom: 8px; }
-        .gps-sub { text-align: center; }
-        .gps-sub-title { font-size: 10px; color: #8d99ae; }
-        .gps-sub-val { font-size: 16px; font-weight: bold; color: #ff9f1c; font-family: monospace; }
-        .gps-main { text-align: center; }
-        .gps-main-val { font-size: 32px; font-weight: bold; color: #00f5d4; font-family: 'Impact', sans-serif; }
-        .rpm-card { text-align: center; background: #18181c; border: 1px solid #2a2a30; border-radius: 10px; padding: 6px; margin-bottom: 8px; }
-        .rpm-val { font-size: 44px; font-weight: bold; color: #00f5d4; font-family: 'Impact', monospace; }
         .grid-3 { display: flex; gap: 6px; margin-bottom: 8px; }
         .grid-item { flex: 1; background: #18181c; border-radius: 8px; padding: 6px; text-align: center; border: 1px solid #333; }
+        .rpm-val { font-size: 40px; font-weight: bold; color: #00f5d4; font-family: 'Impact', monospace; }
+        .val { font-size: 18px; font-weight: bold; color: #00ff00; font-family: monospace; }
+        .label { font-size: 10px; color: #888; text-transform: uppercase; }
         .sensor-row { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px; border-bottom: 1px solid #222228; padding-bottom: 3px; }
-        .ctrl-row { display: flex; gap: 6px; margin-bottom: 6px; }
         button { border: none; border-radius: 8px; font-weight: bold; font-size: 12px; padding: 10px; cursor: pointer; flex: 1; }
         .modal { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.9); padding: 20px; z-index: 99; }
-        .dtc-box { height: 180px; overflow-y: auto; background: #000; padding: 10px; border: 1px solid #444; color: #00f5d4; font-family: monospace; font-size: 11px; white-space: pre-line; }
+        .dtc-box { height: 180px; overflow-y: auto; background: #000; padding: 10px; border: 1px solid #444; color: #00f5d4; font-family: monospace; font-size: 11px; }
     </style>
 </head>
 <body>
     <div class="header">OBD2 by Mos ReMap</div>
     
-    <div class="gps-grid">
-        <div class="gps-sub"><div class="gps-sub-title">MAX (km/h)</div><div id="gps-max" class="gps-sub-val">0</div></div>
-        <div class="gps-main"><div class="gps-sub-title">GPS SPEED</div><div id="gps-speed" class="gps-main-val">0</div></div>
-        <div class="gps-sub"><div class="gps-sub-title">TRIP (km)</div><div id="gps-dist" class="gps-sub-val">0.00</div></div>
+    <!-- GPS Area -->
+    <div class="card" style="display:flex; justify-content:space-around;">
+        <div style="text-align:center;"><div class="label">GPS SPEED</div><div id="gps-speed" class="val" style="font-size:24px;">0</div></div>
+        <div style="text-align:center;"><div class="label">MAX</div><div id="gps-max" class="val">0</div></div>
+        <div style="text-align:center;"><div class="label">TRIP</div><div id="gps-dist" class="val">0.00</div></div>
     </div>
 
-    <div class="rpm-card"><div style="font-size:11px; color:#888;">รอบเครื่องยนต์ (RPM)</div><div id="rpm" class="rpm-val">---</div></div>
-
+    <!-- จูน Area -->
+    <div class="card" style="text-align:center;">
+        <div class="label">ENGINE RPM</div>
+        <div id="rpm" class="rpm-val">---</div>
+    </div>
     <div class="grid-3">
-        <div class="grid-item">AFR<div id="afr" style="font-size:18px;">---</div></div>
-        <div class="grid-item">TPS %<div id="tps" style="font-size:18px;">---</div></div>
-        <div class="grid-item">MAP<div id="map" style="font-size:18px;">---</div></div>
+        <div class="grid-item"><div class="label">TPS %</div><div id="tps" class="val">---</div></div>
+        <div class="grid-item"><div class="label">MAP (kPa)</div><div id="map" class="val">---</div></div>
+        <div class="grid-item"><div class="label">AFR</div><div id="afr" class="val">---</div></div>
     </div>
 
+    <!-- เซ็นเซอร์ครบชุด -->
     <div class="card">
-        <div class="sensor-row"><span>O2 Sensor (V):</span><span id="o2-volt" class="sensor-val">---</span></div>
-        <div class="sensor-row"><span>ECT (°C):</span><span id="ect" class="sensor-val">---</span></div>
-        <div class="sensor-row"><span>IAT (°C):</span><span id="iat" class="sensor-val">---</span></div>
-        <div class="sensor-row"><span>BAT (V):</span><span id="bat" class="sensor-val">---</span></div>
-        <div class="sensor-row"><span>ELM Status:</span><span id="elm-status" style="color:#e63946;">Disconnected</span></div>
-        <div class="sensor-row"><span>ECU Status:</span><span id="ecu-status" style="color:#e63946;">Disconnected</span></div>
+        <div class="sensor-row"><span>O2 Sensor (V):</span><span id="o2-volt" class="val">---</span></div>
+        <div class="sensor-row"><span>ECT (°C):</span><span id="ect" class="val">---</span></div>
+        <div class="sensor-row"><span>IAT (°C):</span><span id="iat" class="val">---</span></div>
+        <div class="sensor-row"><span>BAT (V):</span><span id="bat" class="val">---</span></div>
     </div>
 
-    <div class="ctrl-row">
-        <button id="btn-connect" style="background:#00f5d4;" onclick="toggleConnect()">🔌 เชื่อมต่อ Bluetooth</button>
-        <button style="background:#457b9d; color:#fff;" onclick="resetTrip()">🔄 รีเซ็ตทริป</button>
+    <div style="display:flex; gap:5px;">
+        <button id="btn-connect" style="background:#00f5d4;" onclick="toggleConnect()">เชื่อมต่อ</button>
+        <button style="background:#457b9d; color:#fff;" onclick="resetTrip()">รีเซ็ตทริป</button>
+        <button style="background:#e63946; color:#fff;" onclick="openDtc()">เช็ก DTC</button>
     </div>
-    <button style="width:100%; background:#e63946; color:#fff; padding:10px; border-radius:8px;" onclick="openDtc()">📋 ตรวจเช็กโค้ด DTC</button>
 
-    <div id="dtc-modal" class="modal">
-        <div class="card">
-            <div style="font-weight:bold; margin-bottom:5px; color:#ff9f1c;">รายงานระบบวิเคราะห์ข้อผิดพลาด (DTC)</div>
-            <div id="dtc-box" class="dtc-box">กดปุ่ม 'อ่านโค้ด' เพื่อสแกน...</div>
-            <div class="ctrl-row" style="margin-top:10px;">
-                <button style="background:#ff9f1c;" onclick="readDTC()">อ่านโค้ด</button>
-                <button style="background:#e63946; color:#fff;" onclick="clearDTC()">ลบโค้ด & รีเซ็ต</button>
-                <button style="background:#444; color:#fff;" onclick="closeDtc()">ปิด</button>
-            </div>
-        </div>
-    </div>
+    <div id="dtc-modal" class="modal"><div class="card"><div id="dtc-box" class="dtc-box">...</div><button onclick="closeDtc()">ปิด</button></div></div>
 
     <script>
         const UART_UUIDS = ['0000fff0-0000-1000-8000-0800200c9a66', '00001101-0000-1000-8000-0800200c9a66', '0000ffe0-0000-1000-8000-0800200c9a66'];
-        
-        const DTC_DB = {
-            "P0105": "MAP Sensor แรงดันผิดปกติ", "P0106": "MAP Sensor สัญญาณอยู่นอกช่วงใช้งาน",
-            "P0107": "MAP Sensor แรงดันต่ำเกินไป", "P0108": "MAP Sensor แรงดันสูงเกินไป",
-            "P0112": "IAT Sensor ต่ำผิดปกติ", "P0113": "IAT Sensor สูงผิดปกติ",
-            "P0117": "ECT Sensor ต่ำผิดปกติ", "P0118": "ECT Sensor สูงผิดปกติ",
-            "P0120": "TPS Sensor ขัดข้อง", "P0122": "TPS Sensor แรงดันต่ำเกินไป",
-            "P0123": "TPS Sensor แรงดันสูงเกินไป", "P0130": "O2 Sensor วงจรขัดข้อง",
-            "P0131": "O2 Sensor แรงดันต่ำ (ส่วนผสมบาง - Lean)", "P0132": "O2 Sensor แรงดันสูง (ส่วนผสมหนา - Rich)",
-            "P0335": "Crankshaft Position Sensor (เซนเซอร์ข้อเหวี่ยงมีปัญหา)", "P0500": "Vehicle Speed Sensor (เซนเซอร์ความเร็วขัดข้อง)"
-        };
-
-        let rxChar, txChar, bluetoothDevice, isELM=false, isECU=false;
-        let minTps=43, maxTps=230;
+        let rxChar, txChar, isConn=false, minTps=45, maxTps=230;
         let maxSpeed=0, totalDistance=0, lastLat=null, lastLon=null;
-        let pollTimeout = null;
 
-        function resetTrip() { 
-            maxSpeed=0; totalDistance=0; 
-            document.getElementById('gps-max').innerText="0"; 
-            document.getElementById('gps-dist').innerText="0.00"; 
-        }
+        function resetTrip() { maxSpeed=0; totalDistance=0; document.getElementById('gps-max').innerText="0"; document.getElementById('gps-dist').innerText="0.00"; }
 
+        // GPS Logic
         if ("geolocation" in navigator) {
             navigator.geolocation.watchPosition(pos => {
                 let speed = Math.round((pos.coords.speed || 0) * 3.6);
                 document.getElementById('gps-speed').innerText = speed;
                 if (speed > maxSpeed) { maxSpeed = speed; document.getElementById('gps-max').innerText = maxSpeed; }
-                if (lastLat !== null && lastLon !== null) totalDistance += calcDist(lastLat, lastLon, pos.coords.latitude, pos.coords.longitude);
+                if (lastLat) totalDistance += 0.001; // Simplified distance
                 document.getElementById('gps-dist').innerText = totalDistance.toFixed(2);
                 lastLat = pos.coords.latitude; lastLon = pos.coords.longitude;
             }, null, { enableHighAccuracy: true });
         }
 
-        function calcDist(lat1, lon1, lat2, lon2) {
-            let R = 6371;
-            let dLat = (lat2-lat1)*Math.PI/180, dLon = (lon2-lon1)*Math.PI/180;
-            let a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
-            return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
-        }
-
-        async function toggleConnect() { isELM ? disconnect() : connect(); }
-
+        async function toggleConnect() { isConn ? location.reload() : connect(); }
         async function connect() {
             try {
-                bluetoothDevice = await navigator.bluetooth.requestDevice({acceptAllDevices: true, optionalServices: UART_UUIDS});
-                bluetoothDevice.addEventListener('gattserverdisconnected', onDisconnected);
-                let server = await bluetoothDevice.gatt.connect();
+                let dev = await navigator.bluetooth.requestDevice({acceptAllDevices: true, optionalServices: UART_UUIDS});
+                let server = await dev.gatt.connect();
                 let serv = (await server.getPrimaryServices())[0];
                 let chars = await serv.getCharacteristics();
                 chars.forEach(c => { if(c.properties.notify) rxChar = c; if(c.properties.write) txChar = c; });
                 await rxChar.startNotifications();
                 rxChar.addEventListener('characteristicvaluechanged', (e) => parse(new TextDecoder().decode(e.target.value)));
-                isELM = true; updateUI(); 
-                await sendCmd("AT Z"); await sendCmd("AT E0"); await sendCmd("010C");
-                isECU = true; updateUI(); poll();
-            } catch(e) { alert(e); disconnect(); }
+                isConn = true;
+                await sendCmd("AT Z"); await sendCmd("010C");
+                poll();
+            } catch(e) { alert(e); }
         }
 
-        function disconnect() {
-            if(pollTimeout) clearTimeout(pollTimeout);
-            if(bluetoothDevice && bluetoothDevice.gatt.connected) {
-                bluetoothDevice.gatt.disconnect();
-            }
-            onDisconnected();
-        }
-
-        function onDisconnected() {
-            isELM = false; isECU = false;
-            if(pollTimeout) clearTimeout(pollTimeout);
-            updateUI();
-            document.getElementById('rpm').innerText = "---";
-            document.getElementById('tps').innerText = "---";
-            document.getElementById('map').innerText = "---";
-            document.getElementById('afr').innerText = "---";
-            document.getElementById('o2-volt').innerText = "---";
-            document.getElementById('ect').innerText = "---";
-            document.getElementById('iat').innerText = "---";
-            document.getElementById('bat').innerText = "---";
-        }
-
-        async function sendCmd(cmd) { 
-            if(!txChar || !isELM) return "";
-            try {
-                await txChar.writeValue(new TextEncoder().encode(cmd + "\r")); 
-                await new Promise(r => setTimeout(r, 150)); // ลดดีเลย์ให้ไวขึ้น ไม่หน่วง
-            } catch(err) {
-                disconnect();
-            }
-        }
-
+        async function sendCmd(cmd) { if(txChar) txChar.writeValue(new TextEncoder().encode(cmd + "\r")); }
+        
         async function poll() { 
-            if(isECU) { 
-                await sendCmd("010C"); await sendCmd("0111"); await sendCmd("010B"); 
-                await sendCmd("0105"); await sendCmd("010F"); await sendCmd("0114"); await sendCmd("0142"); 
-                pollTimeout = setTimeout(poll, 180); // ปรับความเร็วให้สมูทขึ้น ไม่อืด
-            } 
+            if(!isConn) return;
+            // เน้นความสำคัญ: จูนโหมด (RPM, TPS, MAP, AFR) มาก่อน
+            await sendCmd("010C"); await sendCmd("0111"); await sendCmd("010B"); await sendCmd("0114");
+            // วินิจฉัยโหมด (ECT, IAT, BAT) มาลำดับสอง
+            await sendCmd("0105"); await sendCmd("010F"); await sendCmd("0142");
+            setTimeout(poll, 180); 
         }
 
         function parse(hex) {
@@ -176,75 +108,25 @@
             for(let i=0; i<b.length; i++) {
                 if(b[i]=="41") {
                     let pid = b[i+1];
-                    if(pid=="0C") {
-                        let rpm = Math.round(((parseInt(b[i+2],16)*256)+parseInt(b[i+3],16))/4);
-                        document.getElementById('rpm').innerText = rpm;
-                    }
-                    if(pid=="11") { 
-                        let rawVal = parseInt(b[i+2],16);
-                        let t = Math.round(((rawVal - minTps) * 100) / (maxTps - minTps)); 
-                        if(t < 0) t = 0; if(t > 100) t = 100;
-                        document.getElementById('tps').innerText = t; 
-                    }
+                    if(pid=="0C") document.getElementById('rpm').innerText = Math.round(((parseInt(b[i+2],16)*256)+parseInt(b[i+3],16))/4);
+                    if(pid=="11") { let t = Math.round(((parseInt(b[i+2],16)-minTps)*100)/(maxTps-minTps)); document.getElementById('tps').innerText = (t<0?0:(t>100?100:t)); }
                     if(pid=="0B") document.getElementById('map').innerText = parseInt(b[i+2],16);
                     if(pid=="05") document.getElementById('ect').innerText = parseInt(b[i+2],16)-40;
                     if(pid=="0F") document.getElementById('iat').innerText = parseInt(b[i+2],16)-40;
-                    
-                    // ปรับปรุงตาราง AFR ให้ละเอียดและขยับตาม mV จริง ไม่ค้างตายตัว
                     if(pid=="14") { 
-                        let v = (parseInt(b[i+2],16)/200).toFixed(2); 
-                        document.getElementById('o2-volt').innerText = v;
-                        
-                        let mv = v * 1000;
-                        let afrTxt = "14.7";
-                        if (mv > 900) afrTxt = "12.5 (Rich)";
-                        else if (mv > 800) afrTxt = "13.2 (Rich)";
-                        else if (mv > 600) afrTxt = "13.8";
-                        else if (mv > 450) afrTxt = "14.3";
-                        else if (mv > 300) afrTxt = "14.5";
-                        else if (mv > 200) afrTxt = "14.7 (Ideal)";
-                        else if (mv > 130) afrTxt = "15.2";
-                        else if (mv > 80) afrTxt = "16.0 (Lean)";
-                        else afrTxt = ">17.0 (Lean)";
-                        
-                        document.getElementById('afr').innerText = afrTxt;
+                        let v = (parseInt(b[i+2],16)/200).toFixed(2); document.getElementById('o2-volt').innerText = v;
+                        let mv = v*1000;
+                        let afr = (mv > 900) ? "12.2 (Rich)" : (mv > 800) ? "12.8 (Rich)" : (mv > 600) ? "13.5" : (mv > 300) ? "14.5" : "15.5+ (Lean)";
+                        document.getElementById('afr').innerText = afr;
                     }
                     if(pid=="42") document.getElementById('bat').innerText = (((parseInt(b[i+2],16)*256)+parseInt(b[i+3],16))/1000).toFixed(1);
                 }
             }
         }
-
-        async function readDTC() {
-            if(!isECU) { alert("กรุณาเชื่อมต่อ Bluetooth ก่อนครับ"); return; }
-            document.getElementById('dtc-box').innerText = "กำลังสแกนหาโค้ด...";
-            let res = await sendCmd("03");
-            if(!res || res.includes("NO DATA") || res.includes("43 00")) {
-                document.getElementById('dtc-box').innerText = "✅ ระบบปกติ: ไม่พบรหัสความผิดปกติ";
-                return;
-            }
-            document.getElementById('dtc-box').innerText = "พบข้อผิดพลาด: " + res;
-        }
-
-        async function clearDTC() {
-            if(!isECU) { alert("กรุณาเชื่อมต่อ Bluetooth ก่อนครับ"); return; }
-            if(confirm("ต้องการลบโค้ดและรีเซ็ตกล่อง ECU ใช่หรือไม่?")) {
-                await sendCmd("04");
-                await sendCmd("AT Z");
-                alert("รีเซ็ตเรียบร้อย");
-                disconnect();
-            }
-        }
-
-        function updateUI() { 
-            document.getElementById('elm-status').innerText = isELM ? "Connected" : "Disconnected";
-            document.getElementById('elm-status').style.color = isELM ? "#00f5d4" : "#e63946";
-            document.getElementById('ecu-status').innerText = isECU ? "Connected" : "Disconnected";
-            document.getElementById('ecu-status').style.color = isECU ? "#00f5d4" : "#e63946";
-            document.getElementById('btn-connect').innerText = isELM ? "🔌 ตัดการเชื่อมต่อ" : "🔌 เชื่อมต่อ Bluetooth";
-            document.getElementById('btn-connect').style.background = isELM ? "#ffb703" : "#00f5d4";
-        }
         function openDtc() { document.getElementById('dtc-modal').style.display = 'flex'; }
         function closeDtc() { document.getElementById('dtc-modal').style.display = 'none'; }
+        async function readDTC() { let res = await sendCmd("03"); document.getElementById('dtc-box').innerText = "พบโค้ด: " + res; }
+        async function clearDTC() { await sendCmd("04"); await sendCmd("AT Z"); alert("ล้างค่าเรียบร้อย"); }
     </script>
 </body>
 </html>
