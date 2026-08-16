@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>OBD2 Mos ReMap</title>
+    <title>OBD2 by Mos ReMap</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Tahoma", sans-serif; }
         body { background-color: #0f0f11; color: #ffffff; padding: 10px; min-height: 100vh; }
-        .header { text-align: center; color: #e63946; font-size: 16px; font-weight: bold; margin-bottom: 8px; }
+        .header { text-align: center; color: #e63946; font-size: 18px; font-weight: bold; margin-bottom: 8px; }
         .card { background: #18181c; border: 1px solid #2a2a30; border-radius: 10px; padding: 8px 12px; margin-bottom: 8px; }
         .gps-grid { display: flex; justify-content: space-between; align-items: center; background: #18181c; border: 1px solid #2a2a30; border-radius: 10px; padding: 8px 15px; margin-bottom: 8px; }
         .gps-sub { text-align: center; }
@@ -16,72 +16,58 @@
         .gps-main { text-align: center; }
         .gps-main-val { font-size: 32px; font-weight: bold; color: #00f5d4; font-family: 'Impact', sans-serif; }
         .rpm-card { text-align: center; background: #18181c; border: 1px solid #2a2a30; border-radius: 10px; padding: 6px; margin-bottom: 8px; }
-        .rpm-val { font-size: 44px; font-weight: bold; color: #00f5d4; font-family: 'Impact', monospace; line-height: 1; }
+        .rpm-val { font-size: 44px; font-weight: bold; color: #00f5d4; font-family: 'Impact', monospace; }
         .grid-3 { display: flex; gap: 6px; margin-bottom: 8px; }
-        .grid-item { flex: 1; background: #18181c; border-radius: 8px; padding: 6px; text-align: center; }
+        .grid-item { flex: 1; background: #18181c; border-radius: 8px; padding: 6px; text-align: center; border: 1px solid #333; }
         .sensor-row { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px; border-bottom: 1px solid #222228; padding-bottom: 3px; }
         .ctrl-row { display: flex; gap: 6px; margin-bottom: 6px; }
-        button { border: none; border-radius: 8px; font-weight: bold; font-size: 12px; padding: 10px; cursor: pointer; }
-        .btn-conn { background: #00f5d4; color: #000; flex: 1; }
-        .btn-reset { background: #457b9d; color: #fff; flex: 1; }
-        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); justify-content: center; align-items: center; padding: 15px; z-index: 99; }
-        .modal-content { background: #18181c; border: 1px solid #e63946; border-radius: 12px; width: 100%; max-width: 400px; padding: 15px; }
-        .dtc-box { background: #000; padding: 10px; height: 180px; overflow-y: auto; color: #00f5d4; font-family: monospace; }
+        button { border: none; border-radius: 8px; font-weight: bold; font-size: 12px; padding: 10px; cursor: pointer; flex: 1; }
+        .modal { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.9); padding: 20px; z-index: 99; }
+        .dtc-box { height: 200px; overflow-y: auto; background: #000; padding: 10px; border: 1px solid #444; color: #00f5d4; font-family: monospace; }
     </style>
 </head>
 <body>
-    <div class="header">YAMAHA ECU MONITOR & DIAGNOSTIC (REAL)</div>
+    <div class="header">OBD2 by Mos ReMap</div>
+    
     <div class="gps-grid">
         <div class="gps-sub"><div class="gps-sub-title">MAX (km/h)</div><div id="gps-max" class="gps-sub-val">0</div></div>
         <div class="gps-main"><div class="gps-sub-title">GPS SPEED</div><div id="gps-speed" class="gps-main-val">0</div></div>
         <div class="gps-sub"><div class="gps-sub-title">TRIP (km)</div><div id="gps-dist" class="gps-sub-val">0.00</div></div>
     </div>
-    <div class="rpm-card"><div style="font-size:11px; color:#888;">RPM</div><div id="rpm" class="rpm-val">---</div></div>
+
+    <div class="rpm-card"><div style="font-size:11px; color:#888;">รอบเครื่องยนต์ (RPM)</div><div id="rpm" class="rpm-val">---</div></div>
+
     <div class="grid-3">
         <div class="grid-item">AFR<div id="afr" style="font-size:18px;">---</div></div>
         <div class="grid-item">TPS %<div id="tps" style="font-size:18px;">---</div></div>
         <div class="grid-item">MAP<div id="map" style="font-size:18px;">---</div></div>
     </div>
+
     <div class="card">
+        <div class="sensor-row"><span>O2 Sensor (V):</span><span id="o2-volt" class="sensor-val">---</span></div>
+        <div class="sensor-row"><span>ECT (°C):</span><span id="ect" class="sensor-val">---</span></div>
+        <div class="sensor-row"><span>IAT (°C):</span><span id="iat" class="sensor-val">---</span></div>
+        <div class="sensor-row"><span>BAT (V):</span><span id="bat" class="sensor-val">---</span></div>
         <div class="sensor-row"><span>ELM Status:</span><span id="elm-status" style="color:#e63946;">Disconnected</span></div>
         <div class="sensor-row"><span>ECU Status:</span><span id="ecu-status" style="color:#e63946;">Disconnected</span></div>
     </div>
-    <div class="ctrl-row">
-        <button id="btn-connect" class="btn-conn" onclick="toggleConnect()">🔌 เชื่อมต่อ Bluetooth</button>
-        <button class="btn-reset" onclick="resetTrip()">🔄 รีเซ็ตทริป</button>
-    </div>
-    <button style="width:100%; background:#e63946; color:#fff; padding:10px; border:none; border-radius:8px;" onclick="openDtc()">📋 ตรวจเช็กโค้ด DTC</button>
 
-    <div id="dtc-modal" class="modal"><div class="modal-content"><div id="dtc-box" class="dtc-box">กดปุ่มอ่านโค้ด...</div><div class="ctrl-row"><button onclick="readRealDTC()">อ่านโค้ด</button><button onclick="clearRealDTC()">ลบโค้ด</button><button onclick="closeDtcPopup()">ปิด</button></div></div></div>
+    <div class="ctrl-row">
+        <button id="btn-connect" style="background:#00f5d4;" onclick="toggleConnect()">🔌 เชื่อมต่อ Bluetooth</button>
+        <button style="background:#457b9d; color:#fff;" onclick="resetTrip()">🔄 รีเซ็ตทริป</button>
+    </div>
+    <button style="width:100%; background:#e63946; color:#fff; padding:10px; border-radius:8px;" onclick="openDtc()">📋 ตรวจเช็กโค้ด DTC</button>
+
+    <div id="dtc-modal" class="modal"><div class="card"><div id="dtc-box" class="dtc-box">กดปุ่มอ่านโค้ด...</div><div class="ctrl-row"><button onclick="readDTC()">อ่านโค้ด</button><button onclick="clearDTC()">ลบโค้ด</button><button onclick="closeDtc()">ปิด</button></div></div></div>
 
     <script>
         const UART_UUIDS = ['0000fff0-0000-1000-8000-0800200c9a66', '00001101-0000-1000-8000-0800200c9a66', '0000ffe0-0000-1000-8000-0800200c9a66'];
         let rxChar, txChar, isELM=false, isECU=false, minTps=33, maxTps=255;
         let maxSpeed=0, totalDistance=0, lastLat=null, lastLon=null;
 
-        function resetTrip() { 
-            maxSpeed=0; totalDistance=0; 
-            document.getElementById('gps-max').innerText = "0"; 
-            document.getElementById('gps-dist').innerText = "0.00"; 
-        }
-
-        if ("geolocation" in navigator) {
-            navigator.geolocation.watchPosition(pos => {
-                let speed = Math.round((pos.coords.speed || 0) * 3.6);
-                document.getElementById('gps-speed').innerText = speed;
-                if (speed > maxSpeed) { maxSpeed = speed; document.getElementById('gps-max').innerText = maxSpeed; }
-                if (lastLat !== null && lastLon !== null) totalDistance += calcDist(lastLat, lastLon, pos.coords.latitude, pos.coords.longitude);
-                document.getElementById('gps-dist').innerText = totalDistance.toFixed(2);
-                lastLat = pos.coords.latitude; lastLon = pos.coords.longitude;
-            }, null, { enableHighAccuracy: true });
-        }
-
-        function calcDist(lat1, lon1, lat2, lon2) {
-            let R = 6371;
-            let dLat = (lat2-lat1)*Math.PI/180, dLon = (lon2-lon1)*Math.PI/180;
-            let a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
-            return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
-        }
+        function resetTrip() { maxSpeed=0; totalDistance=0; document.getElementById('gps-max').innerText="0"; document.getElementById('gps-dist').innerText="0.00"; }
+        
+        async function toggleConnect() { isELM ? location.reload() : connect(); }
 
         async function connect() {
             try {
@@ -91,30 +77,39 @@
                 let chars = await serv.getCharacteristics();
                 chars.forEach(c => { if(c.properties.notify) rxChar = c; if(c.properties.write) txChar = c; });
                 await rxChar.startNotifications();
-                rxChar.addEventListener('characteristicvaluechanged', (e) => {
-                    let hex = Array.from(new Uint8Array(e.target.value)).map(b => b.toString(16).padStart(2,'0')).join(" ");
-                    if(hex.includes("41 0c")) document.getElementById('rpm').innerText = Math.round(((parseInt(hex.split("41 0c ")[1].split(" ")[0],16)*256)+parseInt(hex.split("41 0c ")[1].split(" ")[1],16))/4);
-                    if(hex.includes("41 11")) { 
-                        let t = Math.round(((parseInt(hex.split("41 11 ")[1].split(" ")[0],16)-minTps)*100)/(maxTps-minTps));
-                        document.getElementById('tps').innerText = (t<0?0:(t>100?100:t));
-                    }
-                });
-                isELM = true; updateUI(); await sendCmd("AT Z"); await sendCmd("AT E0"); await sendCmd("010C");
+                rxChar.addEventListener('characteristicvaluechanged', (e) => parse(new TextDecoder().decode(e.target.value)));
+                isELM = true; updateUI(); await sendCmd("AT Z"); await sendCmd("010C");
                 isECU = true; updateUI(); poll();
             } catch(e) { alert(e); }
         }
 
-        async function sendCmd(cmd) { txChar.writeValue(new TextEncoder().encode(cmd + "\r")); await new Promise(r => setTimeout(r, 400)); }
-        async function poll() { if(isECU) { await sendCmd("010C"); await sendCmd("0111"); setTimeout(poll, 400); } }
+        async function sendCmd(cmd) { txChar.writeValue(new TextEncoder().encode(cmd + "\r")); await new Promise(r => setTimeout(r, 300)); }
+        async function poll() { if(isECU) { await sendCmd("010C"); await sendCmd("0111"); await sendCmd("010B"); await sendCmd("0105"); await sendCmd("010F"); await sendCmd("0114"); await sendCmd("0142"); setTimeout(poll, 400); } }
+
+        function parse(hex) {
+            let b = hex.toUpperCase().split(" ");
+            for(let i=0; i<b.length; i++) {
+                if(b[i]=="41") {
+                    let pid = b[i+1];
+                    if(pid=="0C") document.getElementById('rpm').innerText = Math.round(((parseInt(b[i+2],16)*256)+parseInt(b[i+3],16))/4);
+                    if(pid=="11") { let t = Math.round(((parseInt(b[i+2],16)-minTps)*100)/(maxTps-minTps)); document.getElementById('tps').innerText = (t<0?0:(t>100?100:t)); }
+                    if(pid=="0B") document.getElementById('map').innerText = parseInt(b[i+2],16);
+                    if(pid=="05") document.getElementById('ect').innerText = parseInt(b[i+2],16)-40;
+                    if(pid=="0F") document.getElementById('iat').innerText = parseInt(b[i+2],16)-40;
+                    if(pid=="14") { let v = (parseInt(b[i+2],16)/200).toFixed(2); document.getElementById('o2-volt').innerText = v; document.getElementById('afr').innerText = (14.7+(v-0.45)*4.5).toFixed(1); }
+                    if(pid=="42") document.getElementById('bat').innerText = (((parseInt(b[i+2],16)*256)+parseInt(b[i+3],16))/1000).toFixed(1);
+                }
+            }
+        }
+
         function updateUI() { 
             document.getElementById('elm-status').innerText = isELM ? "Connected" : "Disconnected";
             document.getElementById('elm-status').style.color = isELM ? "#00f5d4" : "#e63946";
             document.getElementById('ecu-status').innerText = isECU ? "Connected" : "Disconnected";
             document.getElementById('ecu-status').style.color = isECU ? "#00f5d4" : "#e63946";
         }
-        function toggleConnect() { isELM ? location.reload() : connect(); }
         function openDtc() { document.getElementById('dtc-modal').style.display = 'flex'; }
-        function closeDtcPopup() { document.getElementById('dtc-modal').style.display = 'none'; }
+        function closeDtc() { document.getElementById('dtc-modal').style.display = 'none'; }
     </script>
 </body>
 </html>
