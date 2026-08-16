@@ -38,7 +38,10 @@
     <script>
         const UART_UUIDS = ['0000fff0-0000-1000-8000-0800200c9a66', '00001101-0000-1000-8000-0800200c9a66', '0000ffe0-0000-1000-8000-0800200c9a66'];
         const DTC_DB = {"P0106":"MAP Sensor ผิดปกติ","P0112":"IAT Sensor ต่ำ","P0122":"TPS Sensor ต่ำ","P0131":"O2 Sensor ต่ำ","P0335":"เซนเซอร์ข้อเหวี่ยง","P0500":"เซนเซอร์ความเร็ว"};
-        let rxChar, txChar, isELM=false, isECU=false, minTps=25;
+        let rxChar, txChar, isELM=false, isECU=false;
+        
+        // ปรับค่า minTps ตรงนี้ได้เลย หากไม่ได้บิดคันเร่งแล้ว TPS ยังไม่เป็น 0 (แนะนำช่วง 30-35)
+        let minTps = 33; 
 
         async function toggleConnect() { isELM ? location.reload() : connect(); }
 
@@ -63,14 +66,18 @@
 
         function handleData(hex) {
             if(hex.includes("41 0C")) document.getElementById('rpm').innerText = Math.round(((parseInt(hex.split("41 0C ")[1].split(" ")[0],16)*256)+parseInt(hex.split("41 0C ")[1].split(" ")[1],16))/4);
-            if(hex.includes("41 11")) { let t = Math.round(((parseInt(hex.split("41 11 ")[1].split(" ")[0],16)-minTps)*100)/(255-minTps)); document.getElementById('tps').innerText = (t<0?0:t); }
+            if(hex.includes("41 11")) { 
+                let rawVal = parseInt(hex.split("41 11 ")[1].split(" ")[0],16);
+                let t = Math.round(((rawVal - minTps) * 100) / (255 - minTps)); 
+                document.getElementById('tps').innerText = (t < 0 ? 0 : (t > 100 ? 100 : t)); 
+            }
             if(hex.includes("41 0B")) document.getElementById('map').innerText = parseInt(hex.split("41 0B ")[1].split(" ")[0],16);
         }
 
         async function readDTC() {
             let res = await sendCmd("03");
             let box = document.getElementById('dtc-box');
-            if(res.includes("NO DATA") || res.includes("43 00")) box.innerText = "✅ ระบบปกติ: ไม่พบรหัสความผิดปกติ";
+            if(!res || res.includes("NO DATA") || res.includes("43 00")) box.innerText = "✅ ระบบปกติ: ไม่พบรหัสความผิดปกติ";
             else box.innerText = "พบรายการ: " + (DTC_DB[res.trim()] || res);
         }
 
