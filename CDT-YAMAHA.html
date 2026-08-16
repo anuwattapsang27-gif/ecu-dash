@@ -2,25 +2,24 @@
 <html lang="th">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>YAMAHA ECU DASHBOARD</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YAMAHA ECU MONITOR</title>
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; }
-        body { background-color: #0f0f11; color: #ffffff; padding: 10px; }
+        body { background-color: #0f0f11; color: #ffffff; padding: 10px; font-family: sans-serif; }
         .card { background: #18181c; border: 1px solid #2a2a30; border-radius: 10px; padding: 10px; margin-bottom: 8px; }
-        .rpm-val { font-size: 40px; font-weight: bold; color: #00f5d4; text-align: center; }
+        .rpm-val { font-size: 44px; font-weight: bold; color: #00f5d4; text-align: center; }
         .grid-3 { display: flex; gap: 6px; margin-bottom: 8px; }
-        .grid-item { flex: 1; background: #18181c; border-radius: 8px; padding: 10px; border: 1px solid #333; text-align: center; }
+        .grid-item { flex: 1; background: #18181c; border: 1px solid #333; border-radius: 8px; padding: 10px; text-align: center; }
         .sensor-row { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 5px; }
         .ctrl-row { display: flex; gap: 6px; margin-top: 10px; }
         button { flex: 1; padding: 12px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
         .modal { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.9); padding: 20px; z-index: 99; }
-        .dtc-box { height: 200px; overflow-y: auto; background: #000; padding: 10px; border: 1px solid #444; color: #00f5d4; }
+        .dtc-box { height: 180px; overflow-y: auto; background: #000; color: #00f5d4; padding: 10px; font-family: monospace; border: 1px solid #444; }
     </style>
 </head>
 <body>
-    <div class="header" style="text-align:center; color:#e63946; font-weight:bold; margin-bottom:10px;">YAMAHA ECU MONITOR</div>
-    <div class="rpm-card card"><div class="rpm-title" style="font-size:12px; color:#888;">RPM</div><div id="rpm" class="rpm-val">---</div></div>
+    <div style="text-align:center; color:#e63946; font-weight:bold; margin-bottom:10px;">YAMAHA ECU MONITOR</div>
+    <div class="card"><div style="font-size:11px; color:#888;">RPM</div><div id="rpm" class="rpm-val">---</div></div>
     <div class="grid-3">
         <div class="grid-item">AFR<div id="afr" style="font-size:18px;">---</div></div>
         <div class="grid-item">TPS %<div id="tps" style="font-size:18px;">---</div></div>
@@ -33,15 +32,13 @@
     <div id="status-log" style="font-size:11px; color:#ff9f1c; margin-bottom:10px;">พร้อมเชื่อมต่อ</div>
     <div class="ctrl-row"><button id="btn-connect" style="background:#00f5d4;" onclick="toggleConnect()">🔌 เชื่อมต่อ Bluetooth</button><button style="background:#e63946; color:#fff;" onclick="openDtc()">📋 ตรวจเช็ก DTC</button></div>
 
-    <div id="dtc-modal" class="modal"><div class="card"><div id="dtc-box" class="dtc-box">กดปุ่มอ่านโค้ด...</div><div class="ctrl-row"><button onclick="readDTC()">อ่านโค้ด</button><button onclick="closeDtc()">ปิด</button></div></div></div>
-
     <script>
         const UART_UUIDS = ['0000fff0-0000-1000-8000-0800200c9a66', '00001101-0000-1000-8000-0800200c9a66', '0000ffe0-0000-1000-8000-0800200c9a66'];
-        const DTC_DB = {"P0106":"MAP Sensor ผิดปกติ","P0112":"IAT Sensor ต่ำ","P0122":"TPS Sensor ต่ำ","P0131":"O2 Sensor ต่ำ","P0335":"เซนเซอร์ข้อเหวี่ยง","P0500":"เซนเซอร์ความเร็ว"};
         let rxChar, txChar, isELM=false, isECU=false;
         
-        // ปรับค่า minTps ตรงนี้ได้เลย หากไม่ได้บิดคันเร่งแล้ว TPS ยังไม่เป็น 0 (แนะนำช่วง 30-35)
-        let minTps = 33; 
+        // --- ส่วนปรับจูนค่า ---
+        let minTps = 33; // ถ้า TPS ยังไม่เป็น 0 ให้ปรับเลขนี้ขึ้น (เช่น 35, 40)
+        let maxTps = 255; // ถ้า TPS สุดคันเร่งไม่ถึง 100 ให้ลดเลขนี้ลง
 
         async function toggleConnect() { isELM ? location.reload() : connect(); }
 
@@ -53,32 +50,27 @@
                 let chars = await serv.getCharacteristics();
                 chars.forEach(c => { if(c.properties.notify) rxChar = c; if(c.properties.write) txChar = c; });
                 await rxChar.startNotifications();
-                rxChar.addEventListener('characteristicvaluechanged', (e) => handleData(new TextDecoder().decode(e.target.value)));
+                rxChar.addEventListener('characteristicvaluechanged', (e) => {
+                    let hex = Array.from(new Uint8Array(e.target.value)).map(b => b.toString(16).padStart(2, '0')).join(" ");
+                    parse(hex);
+                });
                 isELM = true; updateUI();
                 await sendCmd("AT Z"); await sendCmd("AT E0"); await sendCmd("010C");
                 isECU = true; updateUI(); poll();
             } catch(e) { alert(e); }
         }
 
-        async function sendCmd(cmd) { txChar.writeValue(new TextEncoder().encode(cmd + "\r")); await new Promise(r => setTimeout(r, 400)); }
+        async function sendCmd(cmd) { txChar.writeValue(new TextEncoder().encode(cmd + "\r")); await new Promise(r => setTimeout(r, 300)); }
+        async function poll() { if(isECU) { await sendCmd("010C"); await sendCmd("0111"); await sendCmd("010B"); setTimeout(poll, 300); } }
 
-        async function poll() { if(isECU) { await sendCmd("010C"); await sendCmd("0111"); await sendCmd("010B"); setTimeout(poll, 500); } }
-
-        function handleData(hex) {
-            if(hex.includes("41 0C")) document.getElementById('rpm').innerText = Math.round(((parseInt(hex.split("41 0C ")[1].split(" ")[0],16)*256)+parseInt(hex.split("41 0C ")[1].split(" ")[1],16))/4);
+        function parse(hex) {
+            if(hex.includes("41 0c")) document.getElementById('rpm').innerText = Math.round(((parseInt(hex.split("41 0c ")[1].split(" ")[0],16)*256)+parseInt(hex.split("41 0c ")[1].split(" ")[1],16))/4);
             if(hex.includes("41 11")) { 
-                let rawVal = parseInt(hex.split("41 11 ")[1].split(" ")[0],16);
-                let t = Math.round(((rawVal - minTps) * 100) / (255 - minTps)); 
-                document.getElementById('tps').innerText = (t < 0 ? 0 : (t > 100 ? 100 : t)); 
+                let v = parseInt(hex.split("41 11 ")[1].split(" ")[0],16);
+                let t = Math.round(((v - minTps) * 100) / (maxTps - minTps));
+                document.getElementById('tps').innerText = (t < 0 ? 0 : (t > 100 ? 100 : t)) + "%";
             }
-            if(hex.includes("41 0B")) document.getElementById('map').innerText = parseInt(hex.split("41 0B ")[1].split(" ")[0],16);
-        }
-
-        async function readDTC() {
-            let res = await sendCmd("03");
-            let box = document.getElementById('dtc-box');
-            if(!res || res.includes("NO DATA") || res.includes("43 00")) box.innerText = "✅ ระบบปกติ: ไม่พบรหัสความผิดปกติ";
-            else box.innerText = "พบรายการ: " + (DTC_DB[res.trim()] || res);
+            if(hex.includes("41 0b")) document.getElementById('map').innerText = parseInt(hex.split("41 0b ")[1].split(" ")[0],16) + " kPa";
         }
 
         function updateUI() {
@@ -87,8 +79,6 @@
             document.getElementById('ecu-status').innerText = isECU ? "Connected" : "Disconnected";
             document.getElementById('ecu-status').style.color = isECU ? "#00f5d4" : "#e63946";
         }
-        function openDtc() { document.getElementById('dtc-modal').style.display = 'flex'; }
-        function closeDtc() { document.getElementById('dtc-modal').style.display = 'none'; }
     </script>
 </body>
 </html>
