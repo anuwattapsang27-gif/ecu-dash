@@ -3,87 +3,439 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>OBD2 by Mos ReMap - Honda/Yamaha</title>
+    <title>OBD2 by Mos ReMap</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Tahoma", sans-serif; }
         body { background-color: #0f0f11; color: #ffffff; padding: 10px; padding-bottom: 70px; min-height: 100vh; }
         .header { text-align: center; color: #e63946; font-size: 18px; font-weight: bold; margin-bottom: 8px; }
         .card { background: #18181c; border: 1px solid #2a2a30; border-radius: 10px; padding: 8px 12px; margin-bottom: 8px; }
+        .grid-3 { display: flex; gap: 6px; margin-bottom: 8px; }
+        .grid-item { flex: 1; background: #18181c; border-radius: 8px; padding: 6px; text-align: center; border: 1px solid #333; }
         .rpm-val { font-size: 40px; font-weight: bold; color: #00f5d4; font-family: 'Impact', monospace; }
         .val { font-size: 18px; font-weight: bold; color: #00ff00; font-family: monospace; }
         .label { font-size: 10px; color: #888; text-transform: uppercase; }
+        .sensor-row { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px; border-bottom: 1px solid #222228; padding-bottom: 3px; }
         button { border: none; border-radius: 8px; font-weight: bold; font-size: 12px; padding: 10px; cursor: pointer; }
         
-        /* Modal Fix */
-        .modal { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.9); z-index: 1000; justify-content: center; align-items: center; }
-        .dtc-box { height: 200px; width: 90%; overflow-y: auto; background: #000; padding: 10px; border: 1px solid #444; color: #00f5d4; font-size: 12px; }
+        /* แก้ไขบัคหน้าต่าง Modal ให้แสดงตรงกลางจอเสมอ */
+        .modal { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.85); padding: 20px; z-index: 999; justify-content: center; align-items: center; }
+        .dtc-box { height: 180px; overflow-y: auto; background: #000; padding: 10px; border: 1px solid #444; color: #00f5d4; font-family: monospace; font-size: 12px; white-space: pre-line; line-height: 1.5; }
         
-        /* Navbar & Tabs */
         .navbar { position: fixed; bottom: 0; left: 0; width: 100%; background: #18181c; border-top: 1px solid #333; display: flex; justify-content: space-around; padding: 10px; z-index: 90; }
-        .nav-btn { background: none; color: #888; font-size: 12px; font-weight: bold; border: none; cursor: pointer; }
+        .nav-btn { background: none; color: #888; font-size: 12px; font-weight: bold; display: flex; flex-direction: column; align-items: center; gap: 3px; cursor: pointer; border: none; flex: 1; }
         .nav-btn.active { color: #00f5d4; }
+
         .tab-content { display: none; }
         .tab-content.active { display: block; }
-        
-        /* Table */
-        .table-container { overflow-x: auto; max-height: 350px; border: 1px solid #333; border-radius: 8px; }
-        table { width: 100%; border-collapse: collapse; text-align: center; font-size: 11px; }
-        td.cell-val.recorded { background: #003020; color: #00f5d4; }
+        .tuning-header { display: flex; justify-content: space-around; background: #1c1c22; padding: 8px; border-radius: 8px; margin-bottom: 8px; font-size: 13px; align-items: center; }
+        .table-container { overflow-x: auto; max-height: 380px; border: 1px solid #333; border-radius: 8px; }
+        table { width: 100%; border-collapse: collapse; text-align: center; font-size: 12px; font-family: monospace; }
+        th, td { border: 1px solid #2a2a30; padding: 8px 4px; }
+        th { background: #22222b; color: #ff9f1c; position: sticky; top: 0; cursor: pointer; }
+        th:hover { background: #333340; color: #00f5d4; }
+        td.cell-val { background: #111; color: #fff; font-size: 11px; }
+        td.cell-val.recorded { background: #003020; color: #00f5d4; font-weight: bold; }
+        .target-box { background: #222; padding: 5px 10px; border-radius: 6px; border: 1px solid #444; color: #ff9f1c; font-weight: bold; cursor: pointer; }
     </style>
 </head>
 <body>
     <div class="header">OBD2 by Mos ReMap</div>
 
-    <!-- โปรโตคอลเลือกค่าย -->
-    <div class="card">
-        <select id="protocol-select" style="width:100%; padding:8px; background:#222; color:#fff; border-radius:6px;">
-            <option value="AUTO">อัตโนมัติ (AUTO)</option>
-            <option value="HONDA_CAN">Honda (CAN BUS)</option>
-            <option value="YAMAHA_KLINE">Yamaha (K-Line)</option>
-        </select>
-    </div>
-
     <div id="tab-dash" class="tab-content active">
+        <div class="card" style="display:flex; justify-content:space-around;">
+            <div style="text-align:center;"><div class="label">GPS SPEED</div><div id="gps-speed" class="val" style="font-size:24px;">0</div></div>
+            <div style="text-align:center;"><div class="label">MAX</div><div id="gps-max" class="val">0</div></div>
+            <div style="text-align:center;"><div class="label">TRIP</div><div id="gps-dist" class="val">0.00</div></div>
+        </div>
+
         <div class="card" style="text-align:center;">
             <div class="label">ENGINE RPM</div>
             <div id="rpm" class="rpm-val">---</div>
         </div>
-        <div class="card">
-            <div class="sensor-row" style="display:flex; justify-content:space-between;"><span>AFR:</span><span id="afr" class="val">---</span></div>
-            <div class="sensor-row" style="display:flex; justify-content:space-between;"><span>TPS:</span><span id="tps" class="val">---</span></div>
+        <div class="grid-3">
+            <div class="grid-item"><div class="label">TPS %</div><div id="tps" class="val">---</div></div>
+            <div class="grid-item"><div class="label">MAP (kPa)</div><div id="map" class="val">---</div></div>
+            <div class="grid-item"><div class="label">AFR</div><div id="afr" class="val">---</div></div>
         </div>
-        <button style="width:100%; background:#00f5d4;" onclick="toggleConnect()">เชื่อมต่อ/ตัดการเชื่อมต่อ</button>
+
+        <div class="card">
+            <div class="sensor-row"><span>O2 Sensor (V):</span><span id="o2-volt" class="val">---</span></div>
+            <div class="sensor-row"><span>ECT (°C):</span><span id="ect" class="val">---</span></div>
+            <div class="sensor-row"><span>IAT (°C):</span><span id="iat" class="val">---</span></div>
+            <div class="sensor-row"><span>BAT (V):</span><span id="bat" class="val">---</span></div>
+        </div>
+
+        <div style="display:flex; gap:5px;">
+            <button id="btn-connect" style="background:#00f5d4; color:#000; flex:1;" onclick="toggleConnect()">เชื่อมต่อ</button>
+            <button style="background:#457b9d; color:#fff; flex:1;" onclick="resetTrip()">รีเซ็ตทริป</button>
+            <button style="background:#e63946; color:#fff; flex:1;" onclick="openDtc()">เช็ก DTC</button>
+        </div>
     </div>
 
     <div id="tab-tune" class="tab-content">
+        <div class="tuning-header">
+            <div>วัดจริง: <span id="cur-afr" style="color:#00f5d4; font-weight:bold;">---</span></div>
+            <div>Target: <span id="target-display" class="target-box" onclick="openTargetModal()">13.5</span></div>
+            <div><button style="background:#e63946; color:#fff; padding:6px 10px;" onclick="startRecordToggle()" id="rec-btn">⏺ เริ่มเก็บค่า</button></div>
+        </div>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; font-size:11px;">
+            <span style="color:#ff9f1c;" id="rec-status">สถานะ: พร้อมบันทึก (แสดงค่าชดเชยเฉลี่ย %)</span>
+            <button style="background:#333; color:#ff9f1c; padding:4px 8px;" onclick="clearTable()">🔄 ล้างตาราง</button>
+        </div>
+
         <div class="table-container">
             <table id="ve-table">
-                <thead><tr id="table-header-row"><th>RPM \ TPS</th></tr></thead>
-                <tbody></tbody>
+                <thead>
+                    <tr id="table-header-row">
+                        <th>RPM \ TPS</th>
+                    </tr>
+                </thead>
+                <tbody>
+                </tbody>
             </table>
+        </div>
+        <div class="card" style="margin-top:8px; display:flex; justify-content:space-between; align-items:center;">
+            <span style="font-size:11px; color:#888;">ค่าชดเชยช่องปัจจุบัน:</span>
+            <span id="corr-val" class="val" style="color:#ff9f1c;">0.0%</span>
         </div>
     </div>
 
-    <!-- Modals -->
-    <div id="dtc-modal" class="modal"><div class="card" style="width:300px;"><div id="dtc-box" class="dtc-box">...</div><button onclick="closeDtc()">ปิด</button></div></div>
+    <div id="target-modal" class="modal">
+        <div class="card" style="width:100%; max-width:300px;">
+            <div style="font-weight:bold; margin-bottom:10px; color:#ff9f1c;">ตั้งค่า Target AFR</div>
+            <input type="number" id="input-target" step="0.1" value="13.5" style="width:100%; padding:10px; background:#000; color:#00f5d4; border:1px solid #444; border-radius:6px; font-size:18px; text-align:center; margin-bottom:10px;">
+            <div style="display:flex; gap:6px;">
+                <button style="background:#e63946; color:#fff; flex:1;" onclick="saveTarget()">ตกลง</button>
+                <button style="background:#444; color:#fff; flex:1;" onclick="closeTargetModal()">ยกเลิก</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="edit-header-modal" class="modal">
+        <div class="card" style="width:100%; max-width:300px;">
+            <div id="edit-header-title" style="font-weight:bold; margin-bottom:10px; color:#ff9f1c;">แก้ไขค่า</div>
+            <input type="number" id="input-header-val" style="width:100%; padding:10px; background:#000; color:#00f5d4; border:1px solid #444; border-radius:6px; font-size:18px; text-align:center; margin-bottom:10px;">
+            <div style="display:flex; gap:6px;">
+                <button style="background:#00f5d4; color:#000; flex:1;" onclick="saveHeaderVal()">บันทึก</button>
+                <button style="background:#444; color:#fff; flex:1;" onclick="closeHeaderModal()">ยกเลิก</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="dtc-modal" class="modal">
+        <div class="card" style="width:100%; max-width:350px;">
+            <div style="font-weight:bold; margin-bottom:10px; color:#ff9f1c;">รายงานระบบวิเคราะห์ความผิดปกติ (DTC)</div>
+            <div id="dtc-box" class="dtc-box">กดปุ่ม 'อ่านโค้ด' เพื่อสแกน...</div>
+            <div style="display:flex; gap:5px; margin-top:10px;">
+                <button style="background:#ff9f1c; color:#000; flex:1;" onclick="readDTC()">อ่านโค้ด</button>
+                <button style="background:#e63946; color:#fff; flex:1;" onclick="clearDTC()">ลบโค้ด</button>
+                <button style="background:#444; color:#fff; flex:1;" onclick="closeDtc()">ปิด</button>
+            </div>
+        </div>
+    </div>
 
     <div class="navbar">
-        <button class="nav-btn active" onclick="switchTab('dash', this)">📊 Dashboard</button>
-        <button class="nav-btn" onclick="switchTab('tune', this)">🧮 Tuning</button>
+        <button class="nav-btn active" onclick="switchTab('dash', this)">📊 <span>Dashboard</span></button>
+        <button class="nav-btn" onclick="switchTab('tune', this)">🧮 <span>Tuning Table</span></button>
     </div>
 
     <script>
-        // รวม Database โค้ด Honda/Yamaha
-        const DTC_DB = {
-            "P0105": "MAP Sensor (ฮอนด้า/ยามาฮ่า)",
-            "P0120": "TPS Sensor ขัดข้อง",
-            "P0335": "เซนเซอร์ข้อเหวี่ยงเสีย",
-            "P0112": "IAT Sensor ไอดีเย็นผิดปกติ",
-            "P0117": "ECT Sensor เครื่องยนต์ร้อนเกินไป"
-        };
+        const UART_UUIDS = ['0000fff0-0000-1000-8000-0800200c9a66', '00001101-0000-1000-8000-0800200c9a66', '0000ffe0-0000-1000-8000-0800200c9a66'];
         
-        // ... โค้ดที่เหลือคงระบบเดิมแต่เพิ่มฟังก์ชันเลือก Protocol ใน connect() ...
-        // หากต้องการให้ผมเขียนส่วน Protocol Selector แบบละเอียดเพิ่ม บอกได้เลยนะครับ!
+        // ฐานข้อมูลโค้ด Honda/Yamaha 
+        const DTC_DB = {
+            "P0105": "MAP Sensor สัญญาณผิดปกติ",
+            "P0106": "MAP Sensor แรงดันอยู่นอกขอบเขต",
+            "P0107": "MAP Sensor แรงดันต่ำเกินไป / ลัดวงจร",
+            "P0108": "MAP Sensor แรงดันสูงเกินไป",
+            "P0112": "IAT Sensor (อุณหภูมิอากาศไอดี) ต่ำผิดปกติ",
+            "P0113": "IAT Sensor (อุณหภูมิอากาศไอดี) สูงผิดปกติ",
+            "P0117": "ECT Sensor (ความร้อนเครื่อง) ต่ำผิดปกติ",
+            "P0118": "ECT Sensor (ความร้อนเครื่อง) สูงผิดปกติ",
+            "P0120": "TPS Sensor (องศาลิ้นเร่ง) วงจรขัดข้อง",
+            "P0122": "TPS Sensor แรงดันต่ำเกินไป",
+            "P0123": "TPS Sensor แรงดันสูงเกินไป",
+            "P0130": "O2 Sensor วงจรขัดข้อง",
+            "P0131": "O2 Sensor แรงดันต่ำ (ส่วนผสมบาง Lean)",
+            "P0132": "O2 Sensor แรงดันสูง (ส่วนผสมหนา Rich)",
+            "P0201": "Injector (หัวฉีด) วงจรขัดข้อง",
+            "P0217": "Engine Overheat (เครื่องยนต์ร้อนจัด)",
+            "P0335": "Crankshaft Sensor (พันเซอร์คอยล์/ข้อเหวี่ยง) ขัดข้อง",
+            "P0351": "Ignition Coil (คอยล์จุดระเบิด) ขัดข้อง",
+            "P0500": "VSS Speed Sensor (เซนเซอร์ความเร็วล้อ)",
+            "P0505": "ISC/IACV (ตัวควบคุมรอบเดินเบา) ขัดข้อง",
+            "P0562": "Battery Voltage (แรงดันแบตเตอรี่ต่ำเกินไป)",
+            "P0563": "Battery Voltage (แรงดันแบตเตอรี่สูงเกินไป)",
+            "U0100": "การสื่อสาร CAN Bus (กล่อง ECU ขัดข้อง)",
+            "U0140": "การสื่อสาร CAN Bus ขาดหาย"
+        };
+
+        let rxChar, txChar, isConn=false, minTps=45, maxTps=230;
+        let maxSpeed=0, totalDistance=0, lastLat=null, lastLon=null;
+        
+        let rpmRows = [1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000];
+        let tpsCols = [0, 5, 10, 20, 40, 60, 100];
+        let tableData = {}; 
+        let targetAfr = 13.5;
+        let isRecording = false;
+        let currentRpm = 0, currentTps = 0, currentAfrNum = 14.7;
+        let editType = '', editIndex = -1;
+
+        function buildTable() {
+            let trHead = document.getElementById("table-header-row");
+            trHead.innerHTML = "<th>RPM \\ TPS</th>";
+            tpsCols.forEach((tps, idx) => {
+                let th = document.createElement("th");
+                th.innerText = tps + "%";
+                th.onclick = () => openHeaderModal('tps', idx, tps);
+                trHead.appendChild(th);
+            });
+
+            let tbody = document.querySelector("#ve-table tbody");
+            tbody.innerHTML = "";
+            rpmRows.forEach((rpm, rIdx) => {
+                let tr = document.createElement("tr");
+                let th = document.createElement("th");
+                th.innerText = rpm;
+                th.onclick = () => openHeaderModal('rpm', rIdx, rpm);
+                tr.appendChild(th);
+                
+                tpsCols.forEach(tps => {
+                    let td = document.createElement("td");
+                    td.className = "cell-val";
+                    let key = `${rpm}_${tps}`;
+                    td.id = `cell_${key}`;
+                    if(tableData[key]) {
+                        let corr = tableData[key].avgCorr;
+                        td.innerText = (corr > 0 ? "+" : "") + corr.toFixed(1) + "%";
+                        td.classList.add('recorded');
+                    } else {
+                        td.innerText = "-";
+                    }
+                    tr.appendChild(td);
+                });
+                tbody.appendChild(tr);
+            });
+        }
+        buildTable();
+
+        function openHeaderModal(type, idx, val) {
+            editType = type; editIndex = idx;
+            document.getElementById('edit-header-title').innerText = type === 'rpm' ? `แก้ไขรอบเครื่อง (แถวที่ ${idx+1})` : `แก้ไขเปอร์เซ็นต์คันเร่ง (คอลัมน์ที่ ${idx+1})`;
+            document.getElementById('input-header-val').value = val;
+            document.getElementById('edit-header-modal').style.display = 'flex';
+        }
+        function closeHeaderModal() { document.getElementById('edit-header-modal').style.display = 'none'; }
+        function saveHeaderVal() {
+            let newVal = parseInt(document.getElementById('input-header-val').value);
+            if(!isNaN(newVal)) {
+                if(editType === 'rpm') rpmRows[editIndex] = newVal;
+                if(editType === 'tps') tpsCols[editIndex] = newVal;
+                buildTable();
+            }
+            closeHeaderModal();
+        }
+
+        function switchTab(tabName, btn) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
+            if(tabName === 'dash') document.getElementById('tab-dash').classList.add('active');
+            if(tabName === 'tune') document.getElementById('tab-tune').classList.add('active');
+            btn.classList.add('active');
+        }
+
+        function openTargetModal() { document.getElementById('target-modal').style.display = 'flex'; }
+        function closeTargetModal() { document.getElementById('target-modal').style.display = 'none'; }
+        function saveTarget() {
+            let val = parseFloat(document.getElementById('input-target').value);
+            if(!isNaN(val)) { targetAfr = val; document.getElementById('target-display').innerText = targetAfr.toFixed(1); }
+            closeTargetModal();
+        }
+
+        function startRecordToggle() {
+            isRecording = !isRecording;
+            let btn = document.getElementById('rec-btn');
+            let stat = document.getElementById('rec-status');
+            if(isRecording) {
+                btn.style.background = "#00f5d4"; btn.style.color = "#000"; btn.innerText = "⏹ หยุดบันทึก";
+                stat.innerText = "สถานะ: กำลังบันทึกค่าลงตาราง..."; stat.style.color = "#00f5d4";
+            } else {
+                btn.style.background = "#e63946"; btn.style.color = "#fff"; btn.innerText = "⏺ เริ่มเก็บค่า";
+                stat.innerText = "สถานะ: หยุดบันทึกแล้ว"; stat.style.color = "#ff9f1c";
+            }
+        }
+
+        function clearTable() {
+            if(confirm("ต้องการล้างข้อมูลในตารางทั้งหมดใช่หรือไม่?")) { tableData = {}; buildTable(); }
+        }
+
+        function getClosestCell(rpm, tps) {
+            let rRow = rpmRows.reduce((prev, curr) => Math.abs(curr - rpm) < Math.abs(prev - rpm) ? curr : rpmRows[0]);
+            let cCol = tpsCols.reduce((prev, curr) => Math.abs(curr - tps) < Math.abs(prev - curr) ? curr : tpsCols[0]);
+            if (rpm < rpmRows[0] - 500 || rpm > rpmRows[rpmRows.length - 1] + 500) return null;
+            return { rpm: rRow, tps: cCol };
+        }
+
+        function updateTuningMatrix(rpm, tps, afrVal) {
+            if(!isRecording || isNaN(afrVal)) return;
+            let pos = getClosestCell(rpm, tps);
+            if(!pos) return; 
+            
+            let key = `${pos.rpm}_${pos.tps}`;
+            let instantaneousCorr = ((targetAfr - afrVal) / afrVal) * 100;
+
+            if(!tableData[key]) { tableData[key] = { sumCorr: 0, count: 0, avgCorr: 0 }; }
+            
+            tableData[key].sumCorr += instantaneousCorr;
+            tableData[key].count += 1;
+            
+            let avgCorrection = tableData[key].sumCorr / tableData[key].count;
+            tableData[key].avgCorr = avgCorrection;
+            
+            let cell = document.getElementById(`cell_${key}`);
+            if(cell) {
+                cell.innerText = (avgCorrection > 0 ? "+" : "") + avgCorrection.toFixed(1) + "%";
+                cell.classList.add('recorded');
+            }
+
+            let corrEl = document.getElementById('corr-val');
+            corrEl.innerText = (avgCorrection > 0 ? "+" : "") + avgCorrection.toFixed(1) + "%";
+            corrEl.style.color = avgCorrection > 0 ? "#00ff00" : "#ff4444";
+        }
+
+        function resetTrip() { maxSpeed=0; totalDistance=0; document.getElementById('gps-max').innerText="0"; document.getElementById('gps-dist').innerText="0.00"; }
+
+        if ("geolocation" in navigator) {
+            navigator.geolocation.watchPosition(pos => {
+                let speed = Math.round((pos.coords.speed || 0) * 3.6);
+                document.getElementById('gps-speed').innerText = speed;
+                if (speed > maxSpeed) { maxSpeed = speed; document.getElementById('gps-max').innerText = maxSpeed; }
+                if (lastLat) totalDistance += 0.001;
+                document.getElementById('gps-dist').innerText = totalDistance.toFixed(2);
+                lastLat = pos.coords.latitude; lastLon = pos.coords.longitude;
+            }, null, { enableHighAccuracy: true });
+        }
+
+        async function toggleConnect() { isConn ? location.reload() : connect(); }
+        async function connect() {
+            try {
+                let dev = await navigator.bluetooth.requestDevice({acceptAllDevices: true, optionalServices: UART_UUIDS});
+                let server = await dev.gatt.connect();
+                let serv = (await server.getPrimaryServices())[0];
+                let chars = await serv.getCharacteristics();
+                chars.forEach(c => { if(c.properties.notify) rxChar = c; if(c.properties.write) txChar = c; });
+                await rxChar.startNotifications();
+                rxChar.addEventListener('characteristicvaluechanged', (e) => parse(new TextDecoder().decode(e.target.value)));
+                isConn = true;
+                await sendCmd("AT Z"); await sendCmd("010C");
+                poll();
+            } catch(e) { alert(e); }
+        }
+
+        async function sendCmd(cmd) { if(txChar) txChar.writeValue(new TextEncoder().encode(cmd + "\r")); }
+        async function poll() { 
+            if(!isConn) return;
+            await sendCmd("010C"); await sendCmd("0111"); await sendCmd("010B"); await sendCmd("0114");
+            await sendCmd("0105"); await sendCmd("010F"); await sendCmd("0142");
+            setTimeout(poll, 180); 
+        }
+
+        function parse(hex) {
+            let cleanHex = hex.replace(/[\r\n>]/g, " ").trim();
+            let b = cleanHex.toUpperCase().split(/\s+/);
+            
+            // ดักจับโค้ด Mode 03 (ระบบแปลโค้ด DTC)
+            if (b.includes("43")) {
+                let foundCodes = [];
+                for (let i = b.indexOf("43") + 1; i < b.length - 1; i += 2) {
+                    let b1 = parseInt(b[i], 16);
+                    let b2 = parseInt(b[i+1], 16);
+                    if (isNaN(b1) || isNaN(b2) || (b1 === 0 && b2 === 0)) continue;
+                    
+                    let typeCode = "P";
+                    let prefix = (b1 & 0xC0) >> 6;
+                    if (prefix === 1) typeCode = "C";
+                    else if (prefix === 2) typeCode = "B";
+                    else if (prefix === 3) typeCode = "U";
+                    let numHex = (((b1 & 0x3F) << 8) | b2).toString(16).toUpperCase().padStart(4, '0');
+                    foundCodes.push(typeCode + numHex);
+                }
+                
+                let dtcBox = document.getElementById('dtc-box');
+                if (foundCodes.length === 0) {
+                    dtcBox.innerText = "✅ ระบบปกติ: ไม่พบรหัสความผิดปกติ (No DTC)";
+                } else {
+                    let text = "⚠️ ตรวจพบรหัสปัญหาดังนี้:\n\n";
+                    foundCodes.forEach(code => {
+                        let desc = DTC_DB[code] || "รหัสความผิดปกติเฉพาะ (เช็กคู่มือศูนย์)";
+                        text += `• ${code} : ${desc}\n`;
+                    });
+                    dtcBox.innerText = text;
+                }
+            }
+
+            // อ่านค่า Sensor ตามปกติ
+            for(let i=0; i<b.length; i++) {
+                if(b[i]=="41") {
+                    let pid = b[i+1];
+                    if(pid=="0C") {
+                        currentRpm = Math.round(((parseInt(b[i+2],16)*256)+parseInt(b[i+3],16))/4);
+                        document.getElementById('rpm').innerText = currentRpm;
+                    }
+                    if(pid=="11") { 
+                        let t = Math.round(((parseInt(b[i+2],16)-minTps)*100)/(maxTps-minTps)); 
+                        currentTps = (t<0?0:(t>100?100:t));
+                        document.getElementById('tps').innerText = currentTps; 
+                    }
+                    if(pid=="0B") document.getElementById('map').innerText = parseInt(b[i+2],16);
+                    if(pid=="05") document.getElementById('ect').innerText = parseInt(b[i+2],16)-40;
+                    if(pid=="0F") document.getElementById('iat').innerText = parseInt(b[i+2],16)-40;
+                    if(pid=="14") { 
+                        let v = (parseInt(b[i+2],16)/200).toFixed(2); 
+                        document.getElementById('o2-volt').innerText = v;
+                        let mv = v*1000;
+                        
+                        if (mv > 900) currentAfrNum = 12.2;
+                        else if (mv > 800) currentAfrNum = 12.8;
+                        else if (mv > 600) currentAfrNum = 13.5;
+                        else if (mv > 300) currentAfrNum = 14.5;
+                        else currentAfrNum = 15.5;
+
+                        document.getElementById('afr').innerText = currentAfrNum.toFixed(1) + (mv > 800 ? " (Rich)" : mv < 300 ? " (Lean)" : "");
+                        document.getElementById('cur-afr').innerText = currentAfrNum.toFixed(1);
+
+                        updateTuningMatrix(currentRpm, currentTps, currentAfrNum);
+                    }
+                    if(pid=="42") document.getElementById('bat').innerText = (((parseInt(b[i+2],16)*256)+parseInt(b[i+3],16))/1000).toFixed(1);
+                }
+            }
+        }
+
+        // จัดการเปิดปิด Modal ให้ใช้ flex เสมอ
+        function openDtc() { document.getElementById('dtc-modal').style.display = 'flex'; }
+        function closeDtc() { document.getElementById('dtc-modal').style.display = 'none'; }
+        
+        async function readDTC() { 
+            if(!isConn) { alert("กรุณาเชื่อมต่อ Bluetooth ก่อนครับ"); return; }
+            document.getElementById('dtc-box').innerText = "กำลังสแกนหาโค้ดจากกล่อง ECU...";
+            await sendCmd("03"); 
+        }
+
+        async function clearDTC() { 
+            if(!isConn) { alert("กรุณาเชื่อมต่อ Bluetooth ก่อนครับ"); return; }
+            if(confirm("ลบโค้ดและรีเซ็ตกล่อง ECU ใช่หรือไม่?")) {
+                document.getElementById('dtc-box').innerText = "กำลังลบโค้ด (Mode 04)...";
+                await sendCmd("04");
+                setTimeout(async () => {
+                    document.getElementById('dtc-box').innerText = "กำลังรีเซ็ตกล่อง (AT Z)...";
+                    await sendCmd("AT Z");
+                    setTimeout(() => {
+                        document.getElementById('dtc-box').innerText = "✅ ลบโค้ดและรีเซ็ตเรียบร้อย";
+                    }, 1000);
+                }, 1000);
+            }
+        }
     </script>
 </body>
 </html>
