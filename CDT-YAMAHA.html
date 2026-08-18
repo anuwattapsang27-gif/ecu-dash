@@ -19,21 +19,20 @@
         .modal { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.9); padding: 20px; z-index: 99; }
         .dtc-box { height: 180px; overflow-y: auto; background: #000; padding: 10px; border: 1px solid #444; color: #00f5d4; font-family: monospace; font-size: 11px; }
         
-        /* Tab Menu Bar */
         .navbar { position: fixed; bottom: 0; left: 0; width: 100%; background: #18181c; border-top: 1px solid #333; display: flex; justify-content: space-around; padding: 10px; z-index: 90; }
         .nav-btn { background: none; color: #888; font-size: 12px; font-weight: bold; display: flex; flex-direction: column; align-items: center; gap: 3px; cursor: pointer; border: none; flex: 1; }
         .nav-btn.active { color: #00f5d4; }
 
-        /* Tuning Table Styles */
         .tab-content { display: none; }
         .tab-content.active { display: block; }
-        .tuning-header { display: flex; justify-content: space-around; background: #1c1c22; padding: 8px; border-radius: 8px; margin-bottom: 8px; font-size: 13px; }
+        .tuning-header { display: flex; justify-content: space-around; background: #1c1c22; padding: 8px; border-radius: 8px; margin-bottom: 8px; font-size: 13px; align-items: center; }
         .table-container { overflow-x: auto; max-height: 380px; border: 1px solid #333; border-radius: 8px; }
         table { width: 100%; border-collapse: collapse; text-align: center; font-size: 12px; font-family: monospace; }
         th, td { border: 1px solid #2a2a30; padding: 8px 4px; }
-        th { background: #22222b; color: #ff9f1c; position: sticky; top: 0; }
-        td.cell-val { background: #111; color: #fff; cursor: pointer; }
-        td.cell-val.recorded { background: #003020; color: #00f5d4; }
+        th { background: #22222b; color: #ff9f1c; position: sticky; top: 0; cursor: pointer; }
+        th:hover { background: #333340; color: #00f5d4; }
+        td.cell-val { background: #111; color: #fff; font-size: 11px; }
+        td.cell-val.recorded { background: #003020; color: #00f5d4; font-weight: bold; }
         .target-box { background: #222; padding: 5px 10px; border-radius: 6px; border: 1px solid #444; color: #ff9f1c; font-weight: bold; cursor: pointer; }
     </style>
 </head>
@@ -73,22 +72,21 @@
 
     <div id="tab-tune" class="tab-content">
         <div class="tuning-header">
-            <div>AFR วัดได้จริง: <span id="cur-afr" style="color:#00f5d4; font-weight:bold;">---</span></div>
+            <div>วัดจริง: <span id="cur-afr" style="color:#00f5d4; font-weight:bold;">---</span></div>
             <div>Target: <span id="target-display" class="target-box" onclick="openTargetModal()">13.5</span></div>
-            <div><button style="background:#e63946; color:#fff; padding:6px 10px;" onclick="startRecordToggle()" id="rec-btn">⏺ เริ่มเก็บค่าเฉลี่ย</button></div>
+            <div><button style="background:#e63946; color:#fff; padding:6px 10px;" onclick="startRecordToggle()" id="rec-btn">⏺ เริ่มเก็บค่า</button></div>
         </div>
 
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; font-size:11px;">
-            <span style="color:#ff9f1c;" id="rec-status">สถานะ: พร้อมบันทึกตาราง</span>
-            <button style="background:#333; color:#ff9f1c; padding:4px 8px;" onclick="clearTable()">🔄 ล้างค่าในตาราง</button>
+            <span style="color:#ff9f1c;" id="rec-status">สถานะ: พร้อมบันทึก (แสดงค่าชดเชยเฉลี่ย %)</span>
+            <button style="background:#333; color:#ff9f1c; padding:4px 8px;" onclick="clearTable()">🔄 ล้างตาราง</button>
         </div>
 
         <div class="table-container">
             <table id="ve-table">
                 <thead>
-                    <tr>
+                    <tr id="table-header-row">
                         <th>RPM \ TPS</th>
-                        <th>0%</th><th>5%</th><th>10%</th><th>20%</th><th>40%</th><th>60%</th><th>100%</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -96,18 +94,29 @@
             </table>
         </div>
         <div class="card" style="margin-top:8px; display:flex; justify-content:space-between; align-items:center;">
-            <span style="font-size:11px; color:#888;">ค่าชดเชยปัจจุบัน:</span>
+            <span style="font-size:11px; color:#888;">ค่าชดเชยช่องปัจจุบัน:</span>
             <span id="corr-val" class="val" style="color:#ff9f1c;">0.0%</span>
         </div>
     </div>
 
     <div id="target-modal" class="modal">
         <div class="card" style="max-width:300px; margin:auto; margin-top:30vh;">
-            <div style="font-weight:bold; margin-bottom:10px; color:#ff9f1c;">ตั้งค่าเป้าหมาย Target AFR</div>
+            <div style="font-weight:bold; margin-bottom:10px; color:#ff9f1c;">ตั้งค่า Target AFR</div>
             <input type="number" id="input-target" step="0.1" value="13.5" style="width:100%; padding:10px; background:#000; color:#00f5d4; border:1px solid #444; border-radius:6px; font-size:18px; text-align:center; margin-bottom:10px;">
             <div style="display:flex; gap:6px;">
                 <button style="background:#e63946; color:#fff;" onclick="saveTarget()">ตกลง</button>
                 <button style="background:#444; color:#fff;" onclick="closeTargetModal()">ยกเลิก</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="edit-header-modal" class="modal">
+        <div class="card" style="max-width:300px; margin:auto; margin-top:30vh;">
+            <div id="edit-header-title" style="font-weight:bold; margin-bottom:10px; color:#ff9f1c;">แก้ไขค่า</div>
+            <input type="number" id="input-header-val" style="width:100%; padding:10px; background:#000; color:#00f5d4; border:1px solid #444; border-radius:6px; font-size:18px; text-align:center; margin-bottom:10px;">
+            <div style="display:flex; gap:6px;">
+                <button style="background:#00f5d4; color:#000;" onclick="saveHeaderVal()">บันทึก</button>
+                <button style="background:#444; color:#fff;" onclick="closeHeaderModal()">ยกเลิก</button>
             </div>
         </div>
     </div>
@@ -124,35 +133,68 @@
         let rxChar, txChar, isConn=false, minTps=45, maxTps=230;
         let maxSpeed=0, totalDistance=0, lastLat=null, lastLon=null;
         
-        // ตัวแปรระบบ Tuning Table
         let rpmRows = [1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000];
         let tpsCols = [0, 5, 10, 20, 40, 60, 100];
-        let tableData = {}; // เก็บข้อมูล { "RPM_TPS": { sum, count, val } }
+        let tableData = {}; // เก็บข้อมูล { sumAfr, count, avgCorr }
         let targetAfr = 13.5;
         let isRecording = false;
         let currentRpm = 0, currentTps = 0, currentAfrNum = 14.7;
+        let editType = '', editIndex = -1;
 
-        // สร้างตาราง Matrix บนหน้าเว็บ
         function buildTable() {
+            let trHead = document.getElementById("table-header-row");
+            trHead.innerHTML = "<th>RPM \\ TPS</th>";
+            tpsCols.forEach((tps, idx) => {
+                let th = document.createElement("th");
+                th.innerText = tps + "%";
+                th.onclick = () => openHeaderModal('tps', idx, tps);
+                trHead.appendChild(th);
+            });
+
             let tbody = document.querySelector("#ve-table tbody");
             tbody.innerHTML = "";
-            rpmRows.forEach(rpm => {
+            rpmRows.forEach((rpm, rIdx) => {
                 let tr = document.createElement("tr");
                 let th = document.createElement("th");
                 th.innerText = rpm;
+                th.onclick = () => openHeaderModal('rpm', rIdx, rpm);
                 tr.appendChild(th);
                 
                 tpsCols.forEach(tps => {
                     let td = document.createElement("td");
                     td.className = "cell-val";
-                    td.id = `cell_${rpm}_${tps}`;
-                    td.innerText = "-";
+                    let key = `${rpm}_${tps}`;
+                    td.id = `cell_${key}`;
+                    if(tableData[key]) {
+                        let corr = tableData[key].avgCorr;
+                        td.innerText = (corr > 0 ? "+" : "") + corr.toFixed(1) + "%";
+                        td.classList.add('recorded');
+                    } else {
+                        td.innerText = "-";
+                    }
                     tr.appendChild(td);
                 });
                 tbody.appendChild(tr);
             });
         }
         buildTable();
+
+        function openHeaderModal(type, idx, val) {
+            editType = type; editIndex = idx;
+            document.getElementById('edit-header-title').innerText = type === 'rpm' ? `แก้ไขรอบเครื่อง (แถวที่ ${idx+1})` : `แก้ไขเปอร์เซ็นต์คันเร่ง (คอลัมน์ที่ ${idx+1})`;
+            document.getElementById('input-header-val').value = val;
+            document.getElementById('edit-header-modal').style.display = 'block';
+        }
+        function closeHeaderModal() { document.getElementById('edit-header-modal').style.display = 'none'; }
+        function saveHeaderVal() {
+            let newVal = parseInt(document.getElementById('input-header-val').value);
+            if(!isNaN(newVal)) {
+                if(editType === 'rpm') rpmRows[editIndex] = newVal;
+                if(editType === 'tps') tpsCols[editIndex] = newVal;
+                buildTable();
+            }
+            closeHeaderModal();
+        }
 
         function switchTab(tabName, btn) {
             document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
@@ -175,55 +217,59 @@
             let btn = document.getElementById('rec-btn');
             let stat = document.getElementById('rec-status');
             if(isRecording) {
-                btn.style.background = "#00f5d4";
-                btn.style.color = "#000";
-                btn.innerText = "⏹ หยุดบันทึก";
-                stat.innerText = "สถานะ: กำลังบันทึกค่าลงตาราง...";
-                stat.style.color = "#00f5d4";
+                btn.style.background = "#00f5d4"; btn.style.color = "#000"; btn.innerText = "⏹ หยุดบันทึก";
+                stat.innerText = "สถานะ: กำลังบันทึกค่าลงตาราง..."; stat.style.color = "#00f5d4";
             } else {
-                btn.style.background = "#e63946";
-                btn.style.color = "#fff";
-                btn.innerText = "⏺ เริ่มเก็บค่าเฉลี่ย";
-                stat.innerText = "สถานะ: หยุดบันทึกแล้ว";
-                stat.style.color = "#ff9f1c";
+                btn.style.background = "#e63946"; btn.style.color = "#fff"; btn.innerText = "⏺ เริ่มเก็บค่า";
+                stat.innerText = "สถานะ: หยุดบันทึกแล้ว"; stat.style.color = "#ff9f1c";
             }
         }
 
         function clearTable() {
-            if(confirm("ต้องการล้างข้อมูลในตารางทั้งหมดใช่หรือไม่?")) {
-                tableData = {};
-                buildTable();
-            }
+            if(confirm("ต้องการล้างข้อมูลในตารางทั้งหมดใช่หรือไม่?")) { tableData = {}; buildTable(); }
         }
 
-        // หาพิกัดช่องที่ใกล้เคียงที่สุดในตาราง Matrix
+        // ฟังก์ชันล็อกพิกัดตารางให้แม่นยำ ไม่วิ่งมั่ว
         function getClosestCell(rpm, tps) {
             let rRow = rpmRows.reduce((prev, curr) => Math.abs(curr - rpm) < Math.abs(prev - rpm) ? curr : rpmRows[0]);
             let cCol = tpsCols.reduce((prev, curr) => Math.abs(curr - tps) < Math.abs(prev - curr) ? curr : tpsCols[0]);
+            
+            // กรองขอบเขตไม่ให้หลุดสเกลตาราง
+            if (rpm < rpmRows[0] - 500 || rpm > rpmRows[rpmRows.length - 1] + 500) return null;
             return { rpm: rRow, tps: cCol };
         }
 
         function updateTuningMatrix(rpm, tps, afrVal) {
             if(!isRecording || isNaN(afrVal)) return;
             let pos = getClosestCell(rpm, tps);
+            if(!pos) return; // ถ้าค่ารอบหลุดสเกลตารางจะไม่บันทึกมั่ว
+            
             let key = `${pos.rpm}_${pos.tps}`;
             
-            if(!tableData[key]) { tableData[key] = { sum: 0, count: 0 }; }
-            tableData[key].sum += afrVal;
+            // คำนวณค่าชดเชย (%) ทันที: Target เทียบกับ AFR จริง
+            // สูตร: ((Target - Actual) / Actual) * 100
+            let instantaneousCorr = ((targetAfr - afrVal) / afrVal) * 100;
+
+            if(!tableData[key]) { 
+                tableData[key] = { sumCorr: 0, count: 0, avgCorr: 0 }; 
+            }
+            
+            tableData[key].sumCorr += instantaneousCorr;
             tableData[key].count += 1;
             
-            let avg = tableData[key].sum / tableData[key].count;
-            let cell = document.getElementById(`cell_${pos.rpm}_${pos.tps}`);
+            // หาค่าเฉลี่ยสะสมของช่องนั้นๆ เพื่อความนิ่ง
+            let avgCorrection = tableData[key].sumCorr / tableData[key].count;
+            tableData[key].avgCorr = avgCorrection;
+            
+            let cell = document.getElementById(`cell_${key}`);
             if(cell) {
-                cell.innerText = avg.toFixed(1);
+                cell.innerText = (avgCorrection > 0 ? "+" : "") + avgCorrection.toFixed(1) + "%";
                 cell.classList.add('recorded');
             }
 
-            // คำนวณค่าชดเชย (%) เทียบกับ Target AFR
-            let corr = ((targetAfr - avg) / avg) * 100;
             let corrEl = document.getElementById('corr-val');
-            corrEl.innerText = (corr > 0 ? "+" : "") + corr.toFixed(1) + "%";
-            corrEl.style.color = corr > 0 ? "#00ff00" : "#ff4444";
+            corrEl.innerText = (avgCorrection > 0 ? "+" : "") + avgCorrection.toFixed(1) + "%";
+            corrEl.style.color = avgCorrection > 0 ? "#00ff00" : "#ff4444";
         }
 
         function resetTrip() { maxSpeed=0; totalDistance=0; document.getElementById('gps-max').innerText="0"; document.getElementById('gps-dist').innerText="0.00"; }
@@ -256,7 +302,6 @@
         }
 
         async function sendCmd(cmd) { if(txChar) txChar.writeValue(new TextEncoder().encode(cmd + "\r")); }
-        
         async function poll() { 
             if(!isConn) return;
             await sendCmd("010C"); await sendCmd("0111"); await sendCmd("010B"); await sendCmd("0114");
@@ -286,7 +331,6 @@
                         document.getElementById('o2-volt').innerText = v;
                         let mv = v*1000;
                         
-                        // ประเมินค่าตัวเลข AFR จำลองตาม mV
                         if (mv > 900) currentAfrNum = 12.2;
                         else if (mv > 800) currentAfrNum = 12.8;
                         else if (mv > 600) currentAfrNum = 13.5;
@@ -296,7 +340,6 @@
                         document.getElementById('afr').innerText = currentAfrNum.toFixed(1) + (mv > 800 ? " (Rich)" : mv < 300 ? " (Lean)" : "");
                         document.getElementById('cur-afr').innerText = currentAfrNum.toFixed(1);
 
-                        // ส่งข้อมูลเข้าตาราง Matrix อัตโนมัติถ้ากดปุ่ม Record อยู่
                         updateTuningMatrix(currentRpm, currentTps, currentAfrNum);
                     }
                     if(pid=="42") document.getElementById('bat').innerText = (((parseInt(b[i+2],16)*256)+parseInt(b[i+3],16))/1000).toFixed(1);
@@ -306,7 +349,7 @@
         function openDtc() { document.getElementById('dtc-modal').style.display = 'flex'; }
         function closeDtc() { document.getElementById('dtc-modal').style.display = 'none'; }
         async function readDTC() { let res = await sendCmd("03"); document.getElementById('dtc-box').innerText = "พบโค้ด: " + res; }
-        async function clearDTC() { await sendCmd("04"); await sendCmd("AT Z"); alert("ล้างค่าเรียบร้อย"); }
+        async function clearDTC() { await sendCmd("04"); await sendCmd("AT Z"); alert("ล้างค่าเรียบร้อยได้แล้ว"); }
     </script>
 </body>
 </html>
